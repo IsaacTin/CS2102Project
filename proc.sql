@@ -51,9 +51,9 @@ CREATE OR REPLACE FUNCTION delete_employee() RETURNS TRIGGER
 AS $$
 BEGIN 
     IF (
-        EXISTS (SELECT 1 FROM Offerings WHERE eid = NEW.eid AND end_date > NEW.depart_date
+        EXISTS (SELECT 1 FROM CourseOfferings WHERE eid = NEW.eid AND end_date > NEW.depart_date
         OR 
-        EXISTS (SELECT 1 FROM Sessions WHERE eid = NEW.eid AND launch_date > NEW.depart_date)
+        EXISTS (SELECT 1 FROM CourseOfferingSessions WHERE eid = NEW.eid AND launch_date > NEW.depart_date)
         OR
         EXISTS (SELECT 1 FROM Manages WHERE eid = NEW.eid)
         )
@@ -122,7 +122,7 @@ BEGIN
         FETCH curs into r;
         EXIT WHEN NOT FOUND;
         IF NOT EXISTS (
-            SELECT 1 FROM Sessions 
+            SELECT 1 FROM CourseOfferingSessions 
             WHERE eid = r.eid 
             AND date = input_Date 
             AND input_StartHour BETWEEN start_time AND end_time)
@@ -207,7 +207,7 @@ BEGIN
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        IF NOT EXISTS (SELECT 1 FROM Sessions 
+        IF NOT EXISTS (SELECT 1 FROM CourseOfferingSessions 
             WHERE rid = r.rid 
             AND input_Date = date 
             AND (input_StartHour BETWEEN start_time AND end_time OR endTime BETWEEN start_time AND end_time)
