@@ -179,6 +179,7 @@ CREATE TABLE Redeems (
     PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
 );
 
+-- TODO: Update naming convention to PascalCase instead of snake_case or vice versa for CourseOfferingSessions?
 -- DONE
 CREATE TABLE Pay_slips (
     payment_date                    DATE,
