@@ -1,3 +1,229 @@
+/* ALL TRIGGERS*/
+/*
+explanation for multiple triggers checking the same thing 
+https://stackoverflow.com/questions/39689523/postgresql-multiple-triggers-and-functions
+*/
+/*
+1) No two course offering session of the same course offering can be done on 
+the same day and time (but idk if two sessions can be done on the same day at different times)
+*/
+
+CREATE TRIGGER check_course_offering_session
+BEFORE UPDATE OR INSERT ON CourseOfferingSessions
+FOR EACH ROW 
+EXECUTE FUNCTION check_course_offering_session();
+
+CREATE OR REPLACE FUNCTION check_course_offering_session() 
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM CourseOfferingSessions 
+        WHERE NEW.course_id = course_id 
+        AND NEW.launch_date = launch_date 
+        AND NEW.session_date = session_date) THEN
+        RAISE EXCEPTION 'No course offering session of the same course offering to be conducted on same day and time.'
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql
+
+/*
+2)2. For each course offered by company, 
+customer can register for at most one of its session before its registration deadline
+*/
+CREATE TRIGGER check_register
+BEFORE INSERT ON Registers
+FOR EACH ROW
+EXECUTE FUNCTION check_register();
+
+CREATE OR REPLACE FUNCTION check_register()
+RETURNS TRIGGER AS $$
+DECLARE
+    CurrCourseOffering RECORD;
+    registrationDeadline INT;
+BEGIN
+    SELECT launch_date, course_id FROM CourseOfferingSessions WHERE sid = NEW.sid INTO CurrCourseOffering;
+    WITH CurrSessions AS (SELECT sid FROM CourseOfferingSessions WHERE launch_date = CurrCourseOffering.launch_date AND course_id = CurrCourseOffering.course_id);
+    SELECT registration_deadline FROM courseOfferings WHERE launch_date = CurrCourseOffering.launch_date AND course_id = CurrCourseOffering.course_id INTO registrationDeadline;
+    IF EXISTS (SELECT 1 FROM Registers WHERE sid IN CurrSessions AND cust_id = NEW.cust_id)
+    OR
+    NEW.registers_date >= registration_deadline THEN
+        RAISE EXCEPTION 'Cannot register for more than one session of the same course offering'
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+/*
+3) Seating capacity of course session is equal 
+to seating capacity of room where session conducted, 
+and the seating capacity of a course offering is equal to 
+sum of seating capacities of its sessions (I think can use triggers to update everytime a course session is added)
+*/
+
+
+CREATE TRIGGER update_course_offering_seating_capacity
+AFTER INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION update_course_offering_seating_capacity();
+
+
+CREATE OR REPLACE FUNCTION update_course_offering_seating_capacity()
+RETURNS TRIGGER AS $$
+DECLARE
+        newSum INT;
+BEGIN
+        SELECT SUM(R.seating_capacity) 
+        FROM Rooms R, CourseOfferingSessions C 
+        WHERE R.rid = C.rid GROUP BY (launch_date, course_id) 
+        HAVING NEW.launch_date = launch_date AND NEW.course_id = course_id
+        INTO newSum;
+        UPDATE CourseOfferings
+        SET seating_capacity = newSum
+        WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id;
+END;
+$$ LANGUAGE plpgsql;
+
+/*
+7.	Each room can be used to conduct at most one course session at any time.
+*/
+
+CREATE TRIGGER check_rooms
+BEFORE INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION check_rooms();
+
+CREATE OR REPLACE FUNCTION check_rooms()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM CourseOfferingSessions 
+        WHERE NEW.rid = rid 
+        AND NEW.session_date = session_date 
+        AND NEW.start_time BETWEEN start_time AND (end_time - INTERVAL '1 second')
+        AND sid <> NEW.sid)
+    THEN
+        RAISE EXCEPTION 'Room can only be used to conduct at most one course at any time'
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+/*
+8.	Each instructor specializes in a set of one 
+or more course areas (need to check if the course_area exists) 
+(also I guess check if course_area is null or not)
+*/
+
+
+CREATE TRIGGER check_instructor_specialization
+BEFORE INSERT OR UPDATE ON Instructors
+FOR EACH ROW
+EXECUTE FUNCTION check_instructor_specialization();
+
+CREATE OR REPLACE FUNCTION check_instructor_specialization()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (NEW.course_area_name NOT IN (SELECT course_area_name FROM CourseAreaManaged) THEN
+        RAISE EXCEPTION 'Course area instructor specializes in does not exist';
+    ELSE 
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+/*
+9.	instructor who is assigned to teach a course session must be specialized in that course area
+*/
+
+CREATE TRIGGER check_if_specialized 
+BEFORE INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION check_if_specialized();
+
+
+CREATE OR REPLACE FUNCTION check_if_specialized()
+RETURNS TRIGGER AS $$
+DECLARE
+    CourseAreaName VARCHAR;
+BEGIN
+    SELECT course_area_name FROM Courses WHERE course_id = NEW.course_id INTO CourseAreaName;
+    IF (NEW.course_area_name NOT IN (SELECT course_area_name FROM Instructors WHERE NEW.eid = eid)) THEN
+        RAISE EXCEPTION 'Instructor who is assigned to this course session must specialize in the course area the course needs.';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+/*
+10.	Each instructor can teach at most one course session at any hour AND Each instructor must not be assigned to teach two consecutive course sessions
+*/
+
+CREATE TRIGGER check_if_same_hour 
+BEFORE INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION check_if_same_hour();
+
+CREATE OR REPLACE FUNCTION check_if_same_hour()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM CourseOfferingSessions 
+        WHERE eid = NEW.eid 
+        AND NEW.sid <> sid 
+        AND NEW.session_date = session_date 
+        AND NEW.start_time BETWEEN start_time AND end_time) 
+    THEN   
+        RAISE EXCEPTION 'Instructor can only teach at most one course session at any hour and cannot be assigned to teach two consecutive sessions.';
+        RETURN NULL;
+    ELSE 
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+/*
+12.	Each part-time instructor must not teach more than 30 hours for each month.
+*/
+
+CREATE TRIGGER check_part_time_instructor_hours
+BEFORE INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION check_part_time_instructor_hours();
+
+
+CREATE OR REPLACE FUNCTION check_part_time_instructor_hours()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.eid IN (SELECT eid FROM Part_time_instructors) THEN
+        IF (SELECT EXTRACT (EPOCH FROM 
+            (SELECT SUM(end_time - start_time) FROM CourseOfferingSessions 
+                WHERE eid = NEW.eid
+                AND (SELECT EXTRACT (MONTH FROM session_date) = (SELECT EXTRACT (MONTH FROM NEW.session_date)))))/3600) > 30
+        THEN
+            RAISE EXCEPTION 'Part-time instructors must not teach more than 30 hours for each month.'
+            RETURN NULL;
+        ELSE
+            RETURN NEW;
+        END IF;
+    ELSE 
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+
+
+/*ENDS HERE*/ 
 CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Address VARCHAR, input_Phone INT, input_Email VARCHAR, input_Salary NUMERIC(36,2), input_Join_date DATE, input_Category VARCHAR, input_Areas SET)
 AS $$
 DECLARE
@@ -48,29 +274,25 @@ $$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE FUNCTION delete_employee() RETURNS TRIGGER 
+CREATE OR REPLACE PROCEDURE remove_employee(input_Eid INT, input_DepartureDate DATE) 
 AS $$
 BEGIN 
     IF (
-        EXISTS (SELECT 1 FROM Offerings WHERE eid = NEW.eid AND end_date > NEW.depart_date
+        EXISTS (SELECT 1 FROM CourseOfferings WHERE eid = input_Eid AND registration_deadline > input_DepartureDate
         OR 
-        EXISTS (SELECT 1 FROM Sessions WHERE eid = NEW.eid AND launch_date > NEW.depart_date)
+        EXISTS (SELECT 1 FROM CourseOfferingSessions WHERE eid = input_Eid AND session_date > input_DepartureDate)
         OR
-        EXISTS (SELECT 1 FROM Manages WHERE eid = NEW.eid)
+        EXISTS (SELECT 1 FROM CourseAreaManaged WHERE eid = input_Eid)
         )
     THEN
         RETURN NULL;
     ELSE 
-        OLD.depart_date := NEW.depart_date;
-        RETURN OLD;
+        UPDATE Employees
+        SET depart_date = input_DepartureDate
+        WHERE eid = input_Eid;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-
-CREATE TRIGGER delete_employee
-BEFORE UPDATE ON Employees
-FOR EACH ROW EXECUTE FUNCTION delete_employee();
-
 
 
 

@@ -126,7 +126,9 @@ CREATE TABLE Registers (
     registers_date                  DATE,
     cust_id                         INT REFERENCES Customers(cust_id),
     number                          VARCHAR(16) REFERENCES Credit_cards(number),
-    PRIMARY KEY(registers_date, cust_id, number)
+    sid                             INT NOT NULL, /*add in cuz i think its needed here*/
+    PRIMARY KEY(registers_date, cust_id, number),
+    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 -- DONE
