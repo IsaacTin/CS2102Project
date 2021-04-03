@@ -125,6 +125,7 @@ CREATE TABLE Buys (
 CREATE TABLE Registers (
     registers_date                  DATE,
     cust_id                         INT REFERENCES Customers(cust_id),
+    sid                             INT REFERENCES CourseOfferingSessions(sid), -- Needed to determine number of registrations for a session
     number                          VARCHAR(16) REFERENCES Credit_cards(number),
     PRIMARY KEY(registers_date, cust_id, number)
 );

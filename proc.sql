@@ -279,12 +279,11 @@ CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
 
   NOTE: CourseOfferingSession is a weak entity, but update_instructor procedure does not use the launch_date
   which is part of CourseOfferingSession's primary key. I have ommitted using launch_date in my check for
-  the matching course session. Not sure if this is okay.
+  the matching course session. Not sure if this is okay, I think it should be fine if we can garuantee that
+  sid is unique (which is what we are doing now).
 */
 CREATE OR REPLACE PROCEDURE update_instructor(input_courseId INT, input_sessionId INT, input_instructorId INT)
 AS $$
-DECLARE
-    currentActive INT;
 BEGIN 
     /*Determine if input instructor id is valid*/
     IF NOT EXISTS(SELECT 1
@@ -297,6 +296,40 @@ BEGIN
     /*Update if course session hasn't started*/
     UPDATE CourseOfferingSessions
     SET eid = input_instructorId
+    WHERE course_id = input_courseId
+    AND sid = input_sessionId
+    AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
+END;
+$$ LANGUAGE plpgsql;
+
+
+/*
+  Q22: Change room for a course *session*
+
+  NOTE: Similar to Q21, the checking for course session with input_sessionId assumes that the sid
+  of course sessions are unique. This however contradicts the sample ER model which shows sessions
+  as a weak entity, requiring launch date to uniquely identify a particular course session.
+*/
+CREATE OR REPLACE PROCEDURE update_room(input_courseId INT, input_sessionId INT, input_roomId INT)
+AS $$
+DECLARE
+    numRegistrations INT;
+BEGIN
+    numRegistrations := SELECT count(*) 
+                        FROM Registers
+                        WHERE sid = input_sessionId
+
+    /*Determine if input room id is valid, and sufficient space available*/
+    IF NOT EXISTS(SELECT 1
+                  FROM Rooms
+                  WHERE rid = input_roomId
+                  AND seating_capacity >= numRegistrations) THEN
+        RETURN;
+    END IF;
+
+    /*Update if course session hasn't started*/
+    UPDATE CourseOfferingSessions
+    SET rid = input_roomId
     WHERE course_id = input_courseId
     AND sid = input_sessionId
     AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
