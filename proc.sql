@@ -317,7 +317,7 @@ DECLARE
 BEGIN
     numRegistrations := SELECT count(*) 
                         FROM Registers
-                        WHERE sid = input_sessionId
+                        WHERE sid = input_sessionId;
 
     /*Determine if input room id is valid, and sufficient space available*/
     IF NOT EXISTS(SELECT 1
@@ -330,6 +330,27 @@ BEGIN
     /*Update if course session hasn't started*/
     UPDATE CourseOfferingSessions
     SET rid = input_roomId
+    WHERE course_id = input_courseId
+    AND sid = input_sessionId
+    AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
+END;
+$$ LANGUAGE plpgsql;
+
+
+/*
+  Q23: Remove a course *session*
+*/
+CREATE OR REPLACE PROCEDURE remove_session(input_courseId INT, input_sessionId INT)
+AS $$
+BEGIN
+    /*Don't perform request if at least one registration for session*/
+    IF (SELECT count(*)
+        FROM Registers
+        WHERE sid = input_sessionId) >= 1 THEN
+        RETURN;
+    END IF;
+
+    DELETE FROM CourseOfferingSessions
     WHERE course_id = input_courseId
     AND sid = input_sessionId
     AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
