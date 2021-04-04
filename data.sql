@@ -1,4 +1,4 @@
-DELETE FROM Employees;
+DELETE FROM Employees; -- Empty table
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Pearla Daubeny', 94950634, '2 Pepper Wood Center', 'pdaubeny0@ask.com', null, '2005-05-13');
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Dagmar Ciani', 97853206, '98616 Petterle Lane', 'dciani1@abc.net.au', null, '2012-07-04');
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Stefa Gino', 81720714, '17500 Summit Junction', 'sgino2@storify.com', null, '2017-11-21');
@@ -29,9 +29,8 @@ insert into Employees (name, phone, address, email, depart_date, join_date) valu
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Delly Ebhardt', 85452369, '2 Ridgeway Pass', 'debhardtr@amazon.co.uk', null, '2016-11-09');
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Ursola Philbin', 85853736, '06 Oakridge Point', 'uphilbins@blogger.com', null, '2006-11-21');
 insert into Employees (name, phone, address, email, depart_date, join_date) values ('Rosina Petroselli', 80052001, '47 Garrison Place', 'rpetrosellit@cmu.edu', null, '2001-10-28');
--- SELECT * FROM Employees;
 
-DELETE FROM Rooms;
+DELETE FROM Rooms; -- Empty table
 insert into Rooms (location, seating_capacity) values ('1 Everett Drive', 33);
 insert into Rooms (location, seating_capacity) values ('5 Scoville Trail', 27);
 insert into Rooms (location, seating_capacity) values ('81 Farragut Pass', 47);
@@ -62,9 +61,8 @@ insert into Rooms (location, seating_capacity) values ('330 Fieldstone Way', 27)
 insert into Rooms (location, seating_capacity) values ('43 Toban Place', 21);
 insert into Rooms (location, seating_capacity) values ('364 Calypso Street', 38);
 insert into Rooms (location, seating_capacity) values ('323 Oriole Terrace', 24);
--- SELECT * FROM Rooms;
 
-DELETE FROM Customers;
+DELETE FROM Customers; -- Empty table
 insert into Customers (name, phone, address, email, number) values ('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633');
 insert into Customers (name, phone, address, email, number) values ('Meyer Tarzey', 87612176, '14315 Helena Park', 'mtarzey1@ucoz.ru', '5610657709090474');
 insert into Customers (name, phone, address, email, number) values ('Webster Spaxman', 94518528, '48278 Fairfield Road', 'wspaxman2@amazon.co.uk', '5602230651814471');
@@ -95,9 +93,8 @@ insert into Customers (name, phone, address, email, number) values ('Rriocard Ol
 insert into Customers (name, phone, address, email, number) values ('Cash Seabridge', 91573789, '35 Monterey Pass', 'cseabridger@addtoany.com', '5602222332369496');
 insert into Customers (name, phone, address, email, number) values ('Bertine Philipeaux', 94488417, '43447 Bunker Hill Street', 'bphilipeauxs@example.com', '5602239970599127');
 insert into Customers (name, phone, address, email, number) values ('Laraine Roeby', 98024514, '35 Russell Junction', 'lroebyt@clickbank.net', '5602234288106608');
--- SELECT * FROM Customers
 
-DELETE FROM Course_packages;
+DELETE FROM Course_packages; -- Empty table
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Diomedea irrorata', 75.35, '2021-03-22', '2021-05-05', 9);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Nyctea scandiaca', 93.52, '2021-04-11', '2021-05-07', 5);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Larus dominicanus', 56.8, '2021-04-10', '2021-04-23', 3);
@@ -128,7 +125,6 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Papio ursinus', 59.44, '2021-03-22', '2021-04-25', 4);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
--- SELECT * FROM Course_packages;
 
 
 
