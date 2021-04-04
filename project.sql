@@ -9,7 +9,7 @@ Full_time_Emp, Part_time_Emp, Employees, Pay_slips;
 
 -- DONE
 CREATE TABLE Course_packages (
-    package_id                      INT PRIMARY KEY,
+    package_id                      INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
     price                           NUMERIC(36,2) NOT NULL, 
     sale_start_date                 DATE NOT NULL,
@@ -22,14 +22,14 @@ CREATE TABLE Course_packages (
 
 -- DONE
 CREATE TABLE Rooms (
-    rid                             INT PRIMARY KEY,
+    rid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     location                        VARCHAR NOT NULL,
     seating_capacity                INT NOT NULL
 );
 
 -- DONE
 CREATE TABLE Employees (
-    eid                             INT PRIMARY KEY,
+    eid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
     phone                           INT NOT NULL,
     address                         VARCHAR NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE Full_time_instructors (
 
 -- DONE
 CREATE TABLE Courses (
-    course_id                       INT PRIMARY KEY,
+    course_id                       INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     course_area_name                VARCHAR UNIQUE NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
     title                           VARCHAR NOT NULL,
     description                     VARCHAR NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE Courses (
 
 -- DONE
 CREATE TABLE Customers (
-    cust_id                         INT UNIQUE,
+    cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
     phone                           INT NOT NULL,
     address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
     email                           VARCHAR NOT NULL,
@@ -179,8 +179,8 @@ CREATE TABLE CourseOfferingSessions (
         (CASE 
             WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time <> end_time) THEN
                 CASE
-                    WHEN (start_time >= TIME '09:00:00' AND start_time <= TIME '12:00:00') THEN (end_time <= TIME '12:00:00')
-                    WHEN (end_time <= TIME '16:00:00' AND end_time >= TIME '14:00:00') THEN (start_time >= TIME '14:00:00')
+                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00')
+                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '16:00:00') THEN (start_time >= TIME '14:00:00')
                     ELSE FALSE
                 END
             ELSE FALSE
