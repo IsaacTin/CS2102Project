@@ -162,8 +162,8 @@ CREATE TABLE CourseOfferings (
 -- DONE
 CREATE TABLE CourseOfferingSessions (
     sid                             INT UNIQUE, /* i rly dont think this should be unique cause 'The sessions for a course offering are numbered consecutively starting from 1'*/
-    start_time                      TIME,
-    end_time                        TIME,
+    start_time                      TIME NOT NULL,
+    end_time                        TIME NOT NULL,
     rid                             INT NOT NULL,
     eid                             INT NOT NULL,
     course_id                       INT NOT NULL,
@@ -174,8 +174,6 @@ CREATE TABLE CourseOfferingSessions (
     FOREIGN KEY (course_id, launch_date) REFERENCES CourseOfferings(course_id, launch_date) ON DELETE CASCADE,
     PRIMARY KEY (sid, launch_date, course_id), /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
     CONSTRAINT time_check CHECK (
-        (start_time IS NULL OR end_time IS NULL) /* done cause idk whether to put NOT NULL at start time and end time */
-        OR 
         (CASE 
             WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time <> end_time) THEN
                 CASE
