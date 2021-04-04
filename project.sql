@@ -30,7 +30,7 @@ CREATE TABLE Rooms (
 -- DONE
 CREATE TABLE Employees (
     eid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    name                            VARCHAR NOT NULL UNIQUE,
+    name                            VARCHAR NOT NULL,
     phone                           INT NOT NULL UNIQUE,
     address                         VARCHAR NOT NULL,
     email                           VARCHAR NOT NULL UNIQUE,
@@ -99,7 +99,7 @@ CREATE TABLE Courses (
 -- DONE
 CREATE TABLE Customers (
     cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
-    name                            VARCHAR NOT NULL UNIQUE,
+    name                            VARCHAR NOT NULL,
     phone                           INT NOT NULL UNIQUE,
     address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
     email                           VARCHAR NOT NULL UNIQUE,
