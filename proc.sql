@@ -276,13 +276,8 @@ CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
 /* 
   Q21: Change instructor for a course *session*
   Reference for date/time functions and operators: https://www.postgresql.org/docs/8.2/functions-datetime.html
-
-  NOTE: CourseOfferingSession is a weak entity, but update_instructor procedure does not use the launch_date
-  which is part of CourseOfferingSession's primary key. I have ommitted using launch_date in my check for
-  the matching course session. Not sure if this is okay, I think it should be fine if we can garuantee that
-  sid is unique (which is what we are doing now).
 */
-CREATE OR REPLACE PROCEDURE update_instructor(input_courseId INT, input_sessionId INT, input_instructorId INT)
+CREATE OR REPLACE PROCEDURE update_instructor(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_instructorId INT)
 AS $$
 BEGIN 
     /*Determine if input instructor id is valid*/
@@ -298,6 +293,7 @@ BEGIN
     SET eid = input_instructorId
     WHERE course_id = input_courseId
     AND sid = input_sessionId
+    AND launch_date = input_launchDate
     AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
 END;
 $$ LANGUAGE plpgsql;
@@ -305,12 +301,8 @@ $$ LANGUAGE plpgsql;
 
 /*
   Q22: Change room for a course *session*
-
-  NOTE: Similar to Q21, the checking for course session with input_sessionId assumes that the sid
-  of course sessions are unique. This however contradicts the sample ER model which shows sessions
-  as a weak entity, requiring launch date to uniquely identify a particular course session.
 */
-CREATE OR REPLACE PROCEDURE update_room(input_courseId INT, input_sessionId INT, input_roomId INT)
+CREATE OR REPLACE PROCEDURE update_room(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_roomId INT)
 AS $$
 DECLARE
     numRegistrations INT;
@@ -332,6 +324,7 @@ BEGIN
     SET rid = input_roomId
     WHERE course_id = input_courseId
     AND sid = input_sessionId
+    AND launch_date = input_launchDate
     AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
 END;
 $$ LANGUAGE plpgsql;
@@ -340,7 +333,7 @@ $$ LANGUAGE plpgsql;
 /*
   Q23: Remove a course *session*
 */
-CREATE OR REPLACE PROCEDURE remove_session(input_courseId INT, input_sessionId INT)
+CREATE OR REPLACE PROCEDURE remove_session(input_courseId INT, input_launchDate DATE, input_sessionId INT)
 AS $$
 BEGIN
     /*Don't perform request if at least one registration for session*/
@@ -353,6 +346,7 @@ BEGIN
     DELETE FROM CourseOfferingSessions
     WHERE course_id = input_courseId
     AND sid = input_sessionId
+    AND launch_date = input_launchDate
     AND (date session_date + time end_time) < INTERVAL '0'; -- Course session hasn't started
 END;
 $$ LANGUAGE plpgsql;
