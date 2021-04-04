@@ -9,7 +9,7 @@ Full_time_Emp, Part_time_Emp, Employees, Pay_slips;
 
 -- DONE
 CREATE TABLE Course_packages (
-    package_id                      INT PRIMARY KEY NOT NULL,
+    package_id                      INT PRIMARY KEY,
     name                            VARCHAR NOT NULL,
     price                           NUMERIC(36,2) NOT NULL, 
     sale_start_date                 DATE NOT NULL,
@@ -93,17 +93,17 @@ CREATE TABLE Courses (
     description                     VARCHAR NOT NULL,
     duration                        INT NOT NULL, /**duration is in number of hours**/
     FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name),
-    CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0),
+    CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0)
 );
 
 -- DONE
 CREATE TABLE Customers (
-    cust_id                         INT UNIQUE NOT NULL,
+    cust_id                         INT UNIQUE,
     phone                           INT NOT NULL,
     address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
     email                           VARCHAR NOT NULL,
     name                            VARCHAR NOT NULL,
-    number                          VARCHAR(16) UNIQUE NOT NULL, /** added inside unique to ensure each credit card is owned by only one customer*/
+    number                          VARCHAR(16) UNIQUE, /** added inside unique to ensure each credit card is owned by only one customer*/
     PRIMARY KEY (cust_id, number)
 );
 
@@ -240,4 +240,4 @@ A course offering is said to be available if the number of registrations receive
 otherwise, we say that a course offering is fully booked.
 
 
-/*
+*/
