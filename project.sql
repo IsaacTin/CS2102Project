@@ -30,10 +30,10 @@ CREATE TABLE Rooms (
 -- DONE
 CREATE TABLE Employees (
     eid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    name                            VARCHAR NOT NULL,
-    phone                           INT NOT NULL,
+    name                            VARCHAR NOT NULL UNIQUE,
+    phone                           INT NOT NULL UNIQUE,
     address                         VARCHAR NOT NULL,
-    email                           VARCHAR NOT NULL,
+    email                           VARCHAR NOT NULL UNIQUE,
     depart_date                     DATE, /* Date has to be null if employee has not left company*/
     join_date                       DATE NOT NULL
 );
@@ -99,10 +99,10 @@ CREATE TABLE Courses (
 -- DONE
 CREATE TABLE Customers (
     cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
-    phone                           INT NOT NULL,
+    name                            VARCHAR NOT NULL UNIQUE,
+    phone                           INT NOT NULL UNIQUE,
     address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
-    email                           VARCHAR NOT NULL,
-    name                            VARCHAR NOT NULL,
+    email                           VARCHAR NOT NULL UNIQUE,
     number                          VARCHAR(16) UNIQUE, /** added inside unique to ensure each credit card is owned by only one customer*/
     PRIMARY KEY (cust_id, number)
 );
