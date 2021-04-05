@@ -132,9 +132,11 @@ CREATE TABLE Registers (
     registers_date                  DATE,
     cust_id                         INT REFERENCES Customers(cust_id),
     number                          VARCHAR(16) REFERENCES Credit_cards(number),
-    sid                             INT NOT NULL, /*add in cuz i think its needed here*/
-    PRIMARY KEY(registers_date, cust_id, number),
-    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid) ON UPDATE CASCADE ON DELETE CASCADE
+    sid                             INT NOT NULL, 
+    course_id                       INT NOT NULL,
+    launch_date                     DATE NOT NULL, /*add in cuz i think its needed here*/
+    PRIMARY KEY(registers_date, cust_id, number, sid, course_id, launch_date),
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 -- DONE
@@ -163,7 +165,7 @@ CREATE TABLE CourseOfferings (
 
 -- DONE
 CREATE TABLE CourseOfferingSessions (
-    sid                             INT UNIQUE, /* i rly dont think this should be unique cause 'The sessions for a course offering are numbered consecutively starting from 1'*/
+    sid                             INT, /*Took out unique here*/
     start_time                      TIME NOT NULL,
     end_time                        TIME NOT NULL,
     rid                             INT NOT NULL,
@@ -179,8 +181,8 @@ CREATE TABLE CourseOfferingSessions (
         (CASE 
             WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time <> end_time) THEN
                 CASE
-                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00')
-                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '16:00:00') THEN (start_time >= TIME '14:00:00')
+                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00') 
+                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '16:00:00') THEN (start_time >= TIME '14:00:00') /* I think this one should be BETWEEN '14:00:00 AND 18:00:00 cuz 6pm is 18:00:00'*/
                     ELSE FALSE
                 END
             ELSE FALSE
@@ -231,12 +233,16 @@ CREATE TABLE Cancels (
 /*
 Constraints I think are not captured:
 
-The offerings for the same course have different launch dates.
 
-The seating capacity of a course session is equal to the seating capacity of the room where the session is conducted, 
+Isaac- I think my triggers covers the first and second constraint stated here. However, third constraint I haven't implemented yet
+
+
+1) The offerings for the same course have different launch dates.
+
+2) The seating capacity of a course session is equal to the seating capacity of the room where the session is conducted, 
 and the seating capacity of a course offering is equal to the sum of the seating capacities of its sessions
 
-A course offering is said to be available if the number of registrations received is no more than its seating capacity; 
+3) A course offering is said to be available if the number of registrations received is no more than its seating capacity; 
 otherwise, we say that a course offering is fully booked.
 
 

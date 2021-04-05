@@ -19,7 +19,8 @@ BEGIN
     IF EXISTS (SELECT 1 FROM CourseOfferingSessions 
         WHERE NEW.course_id = course_id 
         AND NEW.launch_date = launch_date 
-        AND NEW.session_date = session_date) THEN
+        AND NEW.session_date = session_date
+        AND NEW.start_time BETWEEN start_time AND end_time - INTERVAL '1 second') THEN
         RAISE EXCEPTION 'No course offering session of the same course offering to be conducted on same day and time.'
         RETURN NULL;
     ELSE
@@ -40,16 +41,14 @@ EXECUTE FUNCTION check_register();
 CREATE OR REPLACE FUNCTION check_register()
 RETURNS TRIGGER AS $$
 DECLARE
-    CurrCourseOffering RECORD;
     registrationDeadline INT;
 BEGIN
-    SELECT launch_date, course_id FROM CourseOfferingSessions WHERE sid = NEW.sid INTO CurrCourseOffering;
-    WITH CurrSessions AS (SELECT sid FROM CourseOfferingSessions WHERE launch_date = CurrCourseOffering.launch_date AND course_id = CurrCourseOffering.course_id);
-    SELECT registration_deadline FROM courseOfferings WHERE launch_date = CurrCourseOffering.launch_date AND course_id = CurrCourseOffering.course_id INTO registrationDeadline;
+    WITH CurrSessions AS (SELECT sid FROM CourseOfferingSessions WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id AND sid <> NEW.sid);
+    SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
     IF EXISTS (SELECT 1 FROM Registers WHERE sid IN CurrSessions AND cust_id = NEW.cust_id)
     OR
     NEW.registers_date >= registration_deadline THEN
-        RAISE EXCEPTION 'Cannot register for more than one session of the same course offering'
+        RAISE EXCEPTION 'Cannot register for more than one session of the same course offering and must register before registration deadline'
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -105,7 +104,8 @@ BEGIN
         WHERE NEW.rid = rid 
         AND NEW.session_date = session_date 
         AND NEW.start_time BETWEEN start_time AND (end_time - INTERVAL '1 second')
-        AND sid <> NEW.sid)
+        AND NOT (sid = NEW.sid AND launch_date = NEW.launch_date AND course_id = NEW.course_id)
+        )
     THEN
         RAISE EXCEPTION 'Room can only be used to conduct at most one course at any time'
     ELSE
@@ -120,7 +120,7 @@ or more course areas (need to check if the course_area exists)
 (also I guess check if course_area is null or not)
 */
 
-
+/* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
 CREATE TRIGGER check_instructor_specialization
 BEFORE INSERT OR UPDATE ON Instructors
 FOR EACH ROW
@@ -178,7 +178,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF EXISTS (SELECT 1 FROM CourseOfferingSessions 
         WHERE eid = NEW.eid 
-        AND NEW.sid <> sid 
+        AND NOT (NEW.sid = sid AND NEW.launch_date = launch_date AND NEW.course_id = course_id) /* Whenever this comes out, its for the case of update*/
         AND NEW.session_date = session_date 
         AND NEW.start_time BETWEEN start_time AND end_time) 
     THEN   
@@ -224,12 +224,10 @@ $$ LANGUAGE plpgsql;
 
 
 /*ENDS HERE*/ 
-CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Address VARCHAR, input_Phone INT, input_Email VARCHAR, input_Salary NUMERIC(36,2), input_Join_date DATE, input_Category VARCHAR, input_Areas SET)
+CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Address VARCHAR, input_Phone INT, input_Email VARCHAR, input_Salary NUMERIC(36,2), input_Join_date DATE, input_Category VARCHAR, input_Areas VARCHAR[])
 AS $$
 DECLARE
-        curs CURSOR FOR areas;
         employeeId INT;
-        r RECORD;
 BEGIN
         INSERT INTO Employees(name, phone, address, email, depart_date, join_date) 
         VALUES(input_Name, input_Phone, input_Address, input_Email, NULL, input_Join_date);
@@ -239,23 +237,15 @@ BEGIN
         IF (input_Category = 'manager') THEN
             INSERT INTO Managers VALUES(employeeId);
             INSERT INTO Full_time_Emp VALUES (employeeId, input_Salary);
-            OPEN curs;
+            FOREACH area IN ARRAY input_Areas
             LOOP
-                FETCH curs INTO r;
-                EXIT WHEN NOT FOUND;
-                INSERT INTO Manages VALUES(r.name, employeeId);
-                CONTINUE;
+                INSERT INTO CourseAreaManaged VALUES(area, employeeId);
             END LOOP;
-            CLOSE curs;
         ELSE IF (input_Category = 'instructor') THEN
-            OPEN curs;
+            FOREACH area IN ARRAY input_Areas
             LOOP
-                FETCH curs INTO r;
-                EXIT WHEN NOT FOUND;
-                INSERT INTO Instructors VALUES (employeeId, r.name);
-                CONTINUE;
-            END LOOP
-            CLOSE curs;
+                INSERT INTO Instructors VALUES(area, employeeId);
+            END LOOP;
             IF (input_Salary < 1000) THEN /*i not sure if can compare int to numeric, and also i assume minimum monthly salary is above 1000*/ 
                 INSERT INTO Part_time_Emp VALUES (employeeId, input_Salary);
                 INSERT INTO Part_time_instructors VALUES(employeeId);
@@ -266,7 +256,7 @@ BEGIN
 
         ELSE /*WHEN ADMINISTRATOR idk if we should check if it is administrator and then raise exception if its not probably should*/
             INSERT INTO Full_time_emp VALUES(employeeId, input_Salary);
-            INSERT INTO Administrators VALUES(employeeId);\
+            INSERT INTO Administrators VALUES(employeeId);
         END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -274,7 +264,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE PROCEDURE remove_employee(input_Eid INT, input_DepartureDate DATE) 
+CREATE OR REPLACE PROCEDURE remove_employee(input_Eid INT, input_DepartureDate DATE) /*Not sure if i should implement the constraints as a trigger*/
 AS $$
 BEGIN 
     IF (
@@ -285,7 +275,7 @@ BEGIN
         EXISTS (SELECT 1 FROM CourseAreaManaged WHERE eid = input_Eid)
         )
     THEN
-        RETURN NULL;
+        RAISE NOTICE 'Unable to remove employee.';
     ELSE 
         UPDATE Employees
         SET depart_date = input_DepartureDate
@@ -348,15 +338,15 @@ BEGIN
             SELECT 1 FROM Sessions 
             WHERE eid = r.eid 
             AND date = input_Date 
-            AND input_StartHour BETWEEN start_time AND end_time)
+            AND input_StartHour BETWEEN start_time AND end_time) /*end_time inclusive as instructor not supposed to teach two sessions in a row anyway*/
         AND
-        EXISTS (SELECT 1 FROM Courses C, Instructors I WHERE I.eid = r.eid AND I.area = C.area)
+        EXISTS (SELECT 1 FROM Courses C, Instructors I WHERE I.eid = r.eid AND I.area = C.area AND C.course_id = input_Cid)
         THEN
             eid := r.eid;
             name := r.name;
             RETURN NEXT;
         ELSE
-            RETURN; /*I'm assuming this means dont add the tuple into the new table */
+            CONTINUE;
     END LOOP;
     CLOSE curs;
 END;
@@ -385,17 +375,19 @@ BEGIN
         EXIT WHEN r.area <> courseArea;
         SELECT EXTRACT(DAY FROM input_StartDate) INTO currDay;
         SELECT EXTRACT(DAY FROM input_EndDate) INTO endDay;
+        (SELECT EXTRACT (EPOCH FROM 
+            (SELECT SUM(end_time - start_time) FROM CourseOfferingSessions 
+                WHERE eid = r.eid
+                AND (SELECT EXTRACT (MONTH FROM session_date) = (SELECT EXTRACT (MONTH FROM currDate)))))/3600) INTO hours;
         LOOP 
             EXIT WHEN currDay > endDay;
-            hours := 0;
-            currTime := '09:00:00';
+            currTime := TIME '09:00:00';
             LOOP
-                EXIT WHEN currTime = '18:00:00';
-                CONTINUE WHEN currTime BETWEEN '12:00:00' AND '14:00:00'
+                EXIT WHEN currTime = TIME '18:00:00';
+                CONTINUE WHEN currTime BETWEEN TIME '12:00:00' AND TIME '13:59:00'
                 IF EXISTS (SELECT 1 FROM find_instructors(input_Cid, currDate, currTime) WHERE r.eid = eid) THEN
                     SELECT name INTO name FROM Employees WHERE r.eid = eid;
                     eid := r.eid;
-                    hours := hours + 1;
                     day := currDay;
                     SELECT array_append(availableHours, currTime);
                     SELECT currTime + INTERVAL '1 hour' INTO currTime;
@@ -430,10 +422,10 @@ BEGIN
     LOOP
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
-        IF NOT EXISTS (SELECT 1 FROM Sessions 
+        IF NOT EXISTS (SELECT 1 FROM CourseOfferingSessions 
             WHERE rid = r.rid 
             AND input_Date = date 
-            AND (input_StartHour BETWEEN start_time AND end_time OR endTime BETWEEN start_time AND end_time)
+            AND (input_StartHour BETWEEN start_time AND (end_time - INTERVAL '1 second') OR endTime BETWEEN start_time AND end_time)
         THEN 
             rid := r.rid;
             RETURN NEXT;
@@ -464,10 +456,10 @@ BEGIN
         SELECT EXTRACT(DAY FROM input_EndDate) INTO endDay;
         LOOP   
             EXIT WHEN currDay > endDay;
-            currTime := '09:00:00';
+            currTime := TIME '09:00:00';
             LOOP
-                EXIT WHEN currTime = '18:00:00';
-                CONTINUE WHEN currTime BETWEEN '12:00:00' AND '14:00:00';
+                EXIT WHEN currTime = TIME '18:00:00';
+                CONTINUE WHEN currTime BETWEEN TIME '12:00:00' AND TIME '13:59:00';
                 IF EXISTS (SELECT 1 FROM find_rooms(currDate, currTime, 1) WHERE rid = r.rid) THEN
                     rid := r.rid;
                     capacity := r.capacity;
@@ -493,4 +485,4 @@ $$ LANGUAGE plpgsql;
 
 
 
-CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
+CREATE OR REPLACE PROCEDURE add_course_offering(input_Coid INT, input_Cid INT, input_Fees NUMERIC(36,2), input_Launch_date DATE, input_Registration_deadline DATE, input_Eid INT, input_Target_registration INT, ) /*I'm having trouble with this as I do not know how to input all the sessions at one go*/
