@@ -285,8 +285,6 @@ CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
 
 CREATE OR REPLACE PROCEDURE add_course_package(name VARCHAR, free_sessions NUMERIC(36,2), start_date DATE, end_date DATE, price NUMERIC(36,2))
 AS $$ 
-DECLARE
-
 BEGIN
     INSERT INTO Course_packages(name, price, sale_start_date, sale_end_date, num_free_registrations)
     VALUES (name, price, start_date, end_date, free_sessions);
@@ -316,8 +314,6 @@ $$ LANGUAGE plpgsql;
 -- The inputs to the routine include the customer and course package identifiers. 
 -- If the purchase transaction is valid, the routine will process the purchase 
 -- with the necessary updates (e.g., payment).
-
--- CREATE OR REPLACE PROCEDURE
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
 CREATE OR REPLACE PROCEDURE buy_course_package(input_cust_id INT, input_package_id INT)
 AS $$
