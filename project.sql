@@ -128,15 +128,6 @@ CREATE TABLE Buys (
 );
 
 -- DONE
-CREATE TABLE Registers (
-    registers_date                  DATE,
-    cust_id                         INT REFERENCES Customers(cust_id),
-    sid                             INT REFERENCES CourseOfferingSessions(sid), -- Needed to determine number of registrations for a session
-    number                          VARCHAR(16) REFERENCES Credit_cards(number),
-    PRIMARY KEY(registers_date, cust_id, number)
-);
-
--- DONE
 CREATE TABLE Administrators (
     eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
 );
@@ -189,6 +180,18 @@ CREATE TABLE CourseOfferingSessions (
     CONSTRAINT sid_more_than_1 CHECK (sid >= 1)
 
 );
+
+-- DONE
+CREATE TABLE Registers (
+    registers_date                  DATE,
+    cust_id                         INT REFERENCES Customers(cust_id),
+    sid                             INT REFERENCES,
+    launch_date                     DATE NOT NULL,
+    course_id                       INT NOT NULL,
+    number                          VARCHAR(16) REFERENCES Credit_cards(number),
+    PRIMARY KEY(registers_date, cust_id, number),
+    FOREIGN KEY (sid, launch_date, course_id) REFERENCES CourseOfferingSessions(sid, launch_date, course_id)  -- Needed to determine number of registrations for a session
+)
 
 -- DONE
 CREATE TABLE Redeems (
