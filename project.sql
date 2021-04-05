@@ -132,7 +132,11 @@ CREATE TABLE Registers (
     registers_date                  DATE,
     cust_id                         INT REFERENCES Customers(cust_id),
     number                          VARCHAR(16) REFERENCES Credit_cards(number),
-    PRIMARY KEY(registers_date, cust_id, number)
+    sid                             INT NOT NULL,
+    launch_date                     DATE NOT NULL,
+    course_id                       INT NOT NULL,
+    FOREIGN KEY (sid, launch_date, course_id) REFERENCES CourseOfferingSessions(sid, launch_date, course_id),
+    PRIMARY KEY(registers_date, cust_id, sid, course_id)
 );
 
 -- DONE
@@ -175,7 +179,7 @@ CREATE TABLE CourseOfferingSessions (
     PRIMARY KEY (sid, launch_date, course_id), /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
     CONSTRAINT time_check CHECK (
         (CASE 
-            WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time <> end_time) THEN
+            WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time < end_time) THEN
                 CASE
                     WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00')
                     WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '16:00:00') THEN (start_time >= TIME '14:00:00')

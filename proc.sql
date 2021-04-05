@@ -272,3 +272,166 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
+
+
+
+-- 18 
+-- Does this include redeems as well?
+CREATE OR REPLACE FUNCTION get_my_registrations(input_cust_id INT)
+RETURNS TABLE(course_name VARCHAR, course_fees NUMERIC(36,2), session_date DATE,
+session_start_hour TIME, session_duration INT, instructor_name VARCHAR) AS $$
+BEGIN
+    RETURN QUERY
+        SELECT title, fees, session_date, start_time, duration, instructor_name
+        FROM 
+            (SELECT course_id, fees, session_date, start_time, duration, instructor_name
+            FROM 
+                (SELECT launch_date, course_id, session_date, start_time, (end_time - start_time) AS duration, name AS instructor_name
+                FROM Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees
+                WHERE cust_id = input_cust_id
+                    AND (
+                        CASE
+                        WHEN session_date == CURRENT_DATE THEN start_time >= CURRENT_TIME
+                        WHEN session_date > CURRENT_DATE THEN TRUE
+                        ELSE FALSE
+                        END
+                        )
+                    AND depart_date IS NULL) -- just to make sure
+                NATURAL JOIN CourseOfferings)
+            NATURAL JOIN Courses
+        ORDER BY (session_date, start_time) ASC;
+END;
+$$ LANGUAGE plpgsql;
+        
+
+-- 19
+CREATE OR REPLACE PROCEDURE update_course_session(input_cust_id INT, input_course_id INT, new_sid INT)
+AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM Registers
+        WHERE cust_id = input_cust_id AND course_id = input_course_id AND sid <> new_sid
+        ) THEN RETURN;
+    END IF;
+
+    -- incomplete; how do i know which session to update if there are multiple registered sessions
+
+
+END;
+$$ LANGUAGE plpgsql;
+
+-- 20
+CREATE OR REPLACE PROCEDURE cancel_registration(input_cust_id INT, input_course_id INT)
+AS $$
+BEGIN 
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM Registers
+        WHERE cust_id = input_cust_id AND course_id = input_course_id
+        ) THEN RETURN;
+    END IF;
+
+    -- not sure if i have to check for specific sessions
+    DELETE FROM Registers
+    WHERE course_id = input_course_id
+        AND cust_id = input_cust_id;
+END;
+$$ LANGUAGE plpgsql;
+
+--25
+CREATE OR REPLACE FUNCTION pay_salary()
+RETURNS TABLE(eid INT, name VARCHAR, status VARCHAR(10), num_work_days INT,
+num_work_hours INT, hourly_rate numeric(36,2), monthly_salary numeric(36,2), salary_amount numeric(36,2)) AS $$
+DECLARE
+  num_days_in_month INT;
+  curs CURSOR FOR (SELECT * FROM Employees ORDER BY eid ASC);
+  r RECORD;
+  first_work_day_of_month INT;
+  last_work_day_of_month INT;
+BEGIN
+    num_days_in_month := (SELECT DATE_PART('days', 
+                            DATE_TRUNC('month', CURRENT_DATE) 
+                            + INTERVAL '1 month' 
+                            - INTERVAL '1 day')
+                        );
+    OPEN curs;
+    LOOP
+        FETCH curs INTO r;
+        EXIT WHEN NOT FOUND;
+        eid := r.eid;
+        name := r.name;
+        IF (
+            (SELECT COUNT(*)
+            FROM Part_time_Emp P1 
+            WHERE P1.eid = r.eid) > 0
+        ) THEN
+            status := 'part-time';
+            num_work_days := NULL;
+            monthly_salary := NULL;
+            num_work_hours := (SELECT COALESCE(SUM(COS1.end_time - COS1.start_time), 0) 
+                                FROM CourseOfferingSessions COS1 
+                                WHERE COS1.eid = r.eid);
+            hourly_rate := (SELECT P2.hourly_rate FROM Part_time_Emp P2 WHERE P2.eid = r.eid);
+            salary_amount := num_work_hours * hourly_rate;
+            INSERT INTO Pay_slips
+            VALUES (CURRENT_DATE, salary_amount, num_work_hours, NULL, r.eid);
+        ELSE
+            status := 'full-time';
+            num_work_hours := NULL;
+            hourly_rate := NULL;
+            -- getting first and last day of work to find number of days in the month worked. Pay is prorated based on this number.
+            IF ((CURRENT_DATE - r.join_date) < num_days_in_month) THEN
+                SELECT EXTRACT(DAY FROM r.join_date) INTO first_work_day_of_month;
+            ELSE
+                first_work_day_of_month := 1;
+            END IF;
+            IF (r.depart_date IS NOT NULL AND (CURRENT_DATE - r.depart_date) < num_days_in_month) THEN
+                SELECT EXTRACT(DAY FROM r.join_date) INTO last_work_day_of_month;
+            ELSE
+                last_work_day_of_month := num_days_in_month;
+            END IF;
+            num_work_days := last_work_day_of_month - first_work_day_of_month + 1;
+            monthly_salary := (SELECT F1.monthly_salary FROM Full_time_Emp F1 WHERE F1.eid = r.eid);
+            salary_amount := (num_work_days / num_days_in_month) * monthly_salary;
+            INSERT INTO Pay_slips
+            VALUES (CURRENT_DATE, salary_amount, NULL, num_work_days, r.eid);
+        END IF;
+        RETURN NEXT;
+    END LOOP;
+    CLOSE curs;
+END;
+$$ LANGUAGE plpgsql;
+
+--27
+CREATE OR REPLACE FUNCTION top_packages(N INT)
+
+--29
+
+CREATE OR REPLACE FUNCTION view_summary_report(N INT)
+RETURNS TABLE (month VARCHAR, year INT, total_salary_paid NUMERIC(36,2), total_num_package_sales INT,
+    total_fees_paid_credit_card NUMERIC(36,2), total_refunds NUMERIC(36,2), num_package_registrations INT) AS $$
+DECLARE
+    months_left INT;
+    curr_month_date TIMESTAMP;
+BEGIN
+    months_left := N;
+    curr_month := NOW();
+    LOOP
+        EXIT WHEN months_left = 0;
+        SELECT to_char(curr_month_date, 'Month') INTO month;
+        SELECT EXTRACT(YEAR FROM curr_month_date) INTO year;
+        total_salary_paid := (SELECT SUM(amount)
+                                FROM Pay_slips P1
+                                WHERE (SELECT EXTRACT(MONTH FROM P1.payment_date)) 
+                                    = (SELECT EXTRACT(MONTH FROM curr_month_date)));
+        
+
+
+        curr_month_date := curr_month_date - INTERVAL '1 month';
+        months_left := months_left - 1;
+        RETURN NEXT;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+--30
