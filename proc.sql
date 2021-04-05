@@ -18,7 +18,7 @@ BEGIN
                 FETCH curs INTO r;
                 EXIT WHEN NOT FOUND;
                 INSERT INTO Manages VALUES(r.name, employeeId);
-                RETURN;
+                CONTINUE;
             END LOOP;
             CLOSE curs;
         ELSE IF (input_Category = 'instructor') THEN
@@ -27,8 +27,9 @@ BEGIN
                 FETCH curs INTO r;
                 EXIT WHEN NOT FOUND;
                 INSERT INTO Instructors VALUES (employeeId, r.name);
-                RETURN;
+                CONTINUE;
             END LOOP
+            CLOSE curs;
             IF (input_Salary < 1000) THEN /*i not sure if can compare int to numeric, and also i assume minimum monthly salary is above 1000*/ 
                 INSERT INTO Part_time_Emp VALUES (employeeId, input_Salary);
                 INSERT INTO Part_time_instructors VALUES(employeeId);
@@ -143,7 +144,7 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION get_available_instructors(input_Cid INT, input_StartDate DATE, input_EndDate DATE)
-RETURNS TABLE(eid INT, name VARCHAR, hours INT, day INT, availableHours INT[]) AS $$
+RETURNS TABLE(eid INT, name VARCHAR, hours INT, day INT, availableHours TIME[]) AS $$
 DECLARE 
     curs CURSOR FOR (SELECT * FROM Instructors ORDER BY eid ASC);
     r RECORD;
@@ -153,8 +154,6 @@ DECLARE
     courseArea INT;
     currTime TIME;
 BEGIN
-    SELECT EXTRACT(DAY FROM input_StartDate) INTO currDay;
-    SELECT EXTRACT(DAY FROM input_EndDate) INTO endDay;
     SELECT area INTO courseArea FROM Courses WHERE course_id = input_Cid;
     currDate := input_StartDate;
     OPEN curs;
@@ -162,6 +161,8 @@ BEGIN
         FETCH curs INTO r;
         EXIT WHEN NOT FOUND;
         EXIT WHEN r.area <> courseArea;
+        SELECT EXTRACT(DAY FROM input_StartDate) INTO currDay;
+        SELECT EXTRACT(DAY FROM input_EndDate) INTO endDay;
         LOOP 
             EXIT WHEN currDay > endDay;
             hours := 0;
@@ -196,7 +197,7 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE FUNCTION find_rooms(input_Date DATE, input_StartHour TIME, input_Duration INT)
-RETURN TABLE(rid INT) AS $$
+RETURNS TABLE(rid INT) AS $$
 DECLARE 
     curs CURSOR FOR (SELECT * FROM Rooms);
     r RECORD;
@@ -215,7 +216,59 @@ BEGIN
             rid := r.rid;
             RETURN NEXT;
         ELSE
-            RETURN;
+            CONTINUE;
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+
+CREATE OR REPLACE FUNCTION get_available_rooms(input_StartDate DATE, input_EndDate DATE) 
+RETURNS TABLE(rid INT, capacity INT, day INT, availableHours TIME[]) AS $$
+DECLARE
+    curs CURSOR FOR (SELECT * FROM Rooms ORDER BY ASC);
+    r RECORD;
+    currDay INT;
+    endDay INT;
+    currTime TIME;
+BEGIN
+    currDate := input_StartDate;
+    OPEN curs
+    LOOP
+        FETCH curs INTO r;
+        EXIT WHEN NOT FOUND;
+        SELECT EXTRACT(DAY FROM input_StartDate) INTO currDay;
+        SELECT EXTRACT(DAY FROM input_EndDate) INTO endDay;
+        LOOP   
+            EXIT WHEN currDay > endDay;
+            currTime := '09:00:00';
+            LOOP
+                EXIT WHEN currTime = '18:00:00';
+                CONTINUE WHEN currTime BETWEEN '12:00:00' AND '14:00:00';
+                IF EXISTS (SELECT 1 FROM find_rooms(currDate, currTime, 1) WHERE rid = r.rid) THEN
+                    rid := r.rid;
+                    capacity := r.capacity;
+                    day := currDay;
+                    SELECT array_append(availableHours, currTime) INTO availableHours;
+                    SELECT currTime + INTERVAL '1 hour' INTO currTime;
+                ELSE
+                    SELECT currTime + INTERVAL '1 hour' INTO currTime;
+                    CONTINUE;
+            END LOOP;
+            IF (rid = r.rid) THEN
+                RETURN NEXT;
+                currDay := currDay + 1;
+                SELECT currDate + INTERVAL '1 day' INTO currDate;
+            ELSE 
+                currDay := currDay + 1;
+                SELECT currDate + INTERVAL '1 day' INTO currDate;
+        END LOOP;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+    
+
+
+
+CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
