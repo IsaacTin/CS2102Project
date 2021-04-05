@@ -279,8 +279,66 @@ CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
 CREATE OR REPLACE FUNCTION popular_courses() 
 RETURNS TABLE(course_id INT, title VARCHAR, course_area VARCHAR, num_offerings INT, num_registrations INT) AS $$
 DECLARE
-
+    firstCourseOffering RECORD;
+    secondCourseOffering RECORD;
+    firstNumRegistrations INT;
+    secondNumRegistrations INT;
 BEGIN
+    /*Course ids with at least two course offerings this year*/
+    WITH AtLeastTwoOfferings AS (SELECT CO1.course_id
+        FROM CourseOfferings CO1, CourseOfferings CO2
+        WHERE CO1.course_id = CO2.course_id 
+        AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
+        AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
+        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE)) -- Within current year
 
+    FOR firstCourseOffering IN 
+        AtLeastTwoOfferings
+    LOOP
+        FOR secondCourseOffering IN
+            AtLeastTwoOfferings
+        LOOP
+            /*Different course, or same course and same course offering*/
+            IF firstCourseOffering.course_id <> secondCourseOffering.course_id 
+            OR (firstCourseOffering.course_id = secondCourseOffering.course_id 
+                AND firstCourseOffering.launch_date = secondCourseOffering.launch_date)
+            THEN
+                CONTINUE;
+            END IF;
+
+            firstNumRegistrations := SELECT COUNT(*) 
+                                     FROM Registers R 
+                                     WHERE R.course_id = firstCourseOffering.course_id 
+                                     AND R.launch_date = firstCourseOffering.launch_date;
+
+            secondNumRegistrations := SELECT COUNT(*) 
+                                     FROM Registers R 
+                                     WHERE R.course_id = secondCourseOffering.course_id 
+                                     AND R.launch_date = secondCourseOffering.launch_date;
+
+            /*Same course but different offering*/
+            IF firstCourseOffering.start_date > secondCourseOffering.start_date THEN -- First has later start date than second
+                IF firstNumRegistrations > secondNumRegistrations THEN
+                    course_id := firstCourseOffering.course_id;
+                    title :=  -- TODO: Get course title
+                    course_area :=  -- TODO: Get course_area_name
+                    num_offerings := -- TODO: Get num_offerings
+                    num_registrations := firstNumRegistrations;
+                    RETURN NEXT;
+                END IF;
+            ELSIF secondCourseOffering.start_date > firstCourseOffering.start_date THEN
+                IF secondNumRegistrations > firstNumRegistrations THEN
+                    course_id := secondCourseOffering.course_id;
+                    title :=  -- TODO: Get course title
+                    course_area :=  -- TODO: Get course_area_name
+                    num_offerings := -- TODO: Get num_offerings
+                    num_registrations := secondNumRegistrations;
+                    RETURN NEXT;
+                END IF;
+            ELSE
+                CONTINUE; -- Same start date, do nothing
+            END IF;
+        END LOOP;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql;
