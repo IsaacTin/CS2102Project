@@ -535,18 +535,32 @@ BEGIN
             IF firstCourseOffering.start_date > secondCourseOffering.start_date THEN -- First has later start date than second
                 IF firstNumRegistrations > secondNumRegistrations THEN
                     course_id := firstCourseOffering.course_id;
-                    title :=  -- TODO: Get course title
-                    course_area :=  -- TODO: Get course_area_name
-                    num_offerings := -- TODO: Get num_offerings
+                    title :=  SELECT title
+                              FROM Courses
+                              WHERE course_id = firstCourseOffering.course_id;
+                    course_area :=  SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = firstCourseOffering.course_id;
+                    num_offerings := SELECT COUNT(*)
+                                     FROM CourseOfferings CO
+                                     WHERE firstCourseOffering.course_id = CO.id
+                                     AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE) -- Within current year
                     num_registrations := firstNumRegistrations;
                     RETURN NEXT;
                 END IF;
             ELSIF secondCourseOffering.start_date > firstCourseOffering.start_date THEN
                 IF secondNumRegistrations > firstNumRegistrations THEN
                     course_id := secondCourseOffering.course_id;
-                    title :=  -- TODO: Get course title
-                    course_area :=  -- TODO: Get course_area_name
-                    num_offerings := -- TODO: Get num_offerings
+                    title :=  SELECT title
+                              FROM Courses
+                              WHERE course_id = secondCourseOffering.course_id;
+                    course_area :=  SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = secondCourseOffering.course_id;
+                    num_offerings := SELECT COUNT(*)
+                                     FROM CourseOfferings CO
+                                     WHERE secondCourseOffering.course_id = CO.id
+                                     AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE) -- Within current year
                     num_registrations := secondNumRegistrations;
                     RETURN NEXT;
                 END IF;
