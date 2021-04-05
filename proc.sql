@@ -309,7 +309,9 @@ BEGIN
                 course_id := courseRecord.course_id;
                 course_title := courseRecord.title;
                 launch_date := courseRecord.launch_date;
-                registration_deadline := courseRecord.registration_deadline;
+                IF courseRecord.registration_deadline > CURRENT_DATE THEN
+                    registration_deadline := courseRecord.registration_deadline;
+                END IF;
                 fees := courseRecord.fees;
                 RETURN NEXT;
             END LOOP;
@@ -334,7 +336,9 @@ BEGIN
                 course_id := courseRecord.course_id;
                 course_title := courseRecord.title;
                 launch_date := courseRecord.launch_date;
-                registration_deadline := courseRecord.registration_deadline;
+                IF courseRecord.registration_deadline > CURRENT_DATE THEN
+                    registration_deadline := courseRecord.registration_deadline;
+                END IF;
                 fees := courseRecord.fees;
                 RETURN NEXT;
             END LOOP;
