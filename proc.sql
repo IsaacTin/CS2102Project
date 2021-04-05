@@ -282,24 +282,25 @@ RETURNS TABLE(course_name VARCHAR, course_fees NUMERIC(36,2), session_date DATE,
 session_start_hour TIME, session_duration INT, instructor_name VARCHAR) AS $$
 BEGIN
     RETURN QUERY
-        SELECT title, fees, session_date, start_time, duration, instructor_name
+        SELECT title, S2.fees, S2.session_date, S2.start_time, S2.duration, S2.instructor_name
         FROM 
-            (SELECT course_id, fees, session_date, start_time, duration, instructor_name
+            (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.duration, S1.instructor_name
             FROM 
-                (SELECT launch_date, course_id, session_date, start_time, (end_time - start_time) AS duration, name AS instructor_name
-                FROM Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees
-                WHERE cust_id = input_cust_id
+                (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
+                    (S0.end_time - S0.start_time) AS duration, S0.name AS instructor_name
+                FROM (Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
+                WHERE S0.cust_id = input_cust_id
                     AND (
                         CASE
-                        WHEN session_date == CURRENT_DATE THEN start_time >= CURRENT_TIME
-                        WHEN session_date > CURRENT_DATE THEN TRUE
+                        WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
+                        WHEN S0.session_date > CURRENT_DATE THEN TRUE
                         ELSE FALSE
                         END
                         )
-                    AND depart_date IS NULL) -- just to make sure
-                NATURAL JOIN CourseOfferings)
+                    AND S0.depart_date IS NULL) AS S1 -- just to make sure
+                NATURAL JOIN CourseOfferings) AS S2
             NATURAL JOIN Courses
-        ORDER BY (session_date, start_time) ASC;
+        ORDER BY (S2.session_date, S2.start_time) ASC;
 END;
 $$ LANGUAGE plpgsql;
         
