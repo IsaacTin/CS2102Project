@@ -272,3 +272,73 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
+
+/*
+  Q26: Idenfiy potential course offerings that could be of interest to inactive customers.
+*/
+CREATE OR REPLACE FUNCTION promote_courses() 
+RETURNS TABLE(cust_id INT, cust_name VARCHAR, course_area VARCHAR, 
+              course_id INT, course_title VARCHAR, launch_date DATE, 
+              registration_deadline DATE, fees NUMERIC(36, 2)) AS $$
+DECLARE
+    customerRecord RECORD;
+    courseRecord RECORD;
+BEGIN
+    /*Get all inactive customers*/
+    SELECT R1.cust_id, R1.name
+    FROM Registers R1 AS InactiveCustomers -- TODO: Not sure if this InactiveCustomers will be available for reference in the rest of the function
+    ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
+    EXCEPT
+    SELECT R2.cust_id
+    FROM Registers R2
+    WHERE registers_date > (CURRENT_DATE - INTERVAL '6 months') -- Active customers
+
+    FOR customerRecord IN(InactiveCustomers)
+    LOOP
+        /*Every course area is of interest as there are no registrations yet*/
+        IF NOT EXISTS (SELECT 1 
+                    FROM Registers
+                    WHERE cust_id = input_custId) THEN
+            /*Get all courseRecords available, since all are of interest*/
+            FOR courseRecord IN(SELECT * 
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                ORDER BY CourseData.registration_deadline ASC)
+                cust_id := customerRecord.cust_id;
+                cust_name = customerRecord.name;
+                course_area := courseRecord.course_area_name;
+                course_id := courseRecord.course_id;
+                course_title := courseRecord.title;
+                launch_date := courseRecord.launch_date;
+                registration_deadline := courseRecord.registration_deadline;
+                fees := courseRecord.fees;
+                RETURN NEXT;
+            END LOOP;
+        ELSE 
+            /*TopThreeAreas*/
+            SELECT course_area
+            FROM (Registers R JOIN Courses C ON (R.course_id = C.course_id)) AS TopThreeAreas
+            ORDER BY R.registers_date DESC -- Earliest to latest
+            WHERE customerRecord.cust_id = TopThreeAreas.cust_id
+            LIMIT 3
+
+            /*Get all course record that are in the customer's interest area*/
+            FOR courseRecord IN(SELECT *
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                WHERE EXISTS(SELECT 1
+                                             FROM TopThreeAreas
+                                             WHERE course_area = CourseData.course_area_name)
+                                ORDER BY CourseData.registration_deadline ASC)
+                cust_id := customerRecord.cust_id;
+                cust_name = customerRecord.name;
+                course_area := courseRecord.course_area_name;
+                course_id := courseRecord.course_id;
+                course_title := courseRecord.title;
+                launch_date := courseRecord.launch_date;
+                registration_deadline := courseRecord.registration_deadline;
+                fees := courseRecord.fees;
+                RETURN NEXT;
+            END LOOP;
+        END IF;
+    END LOOP;    
+END;
+$$ LANGUAGE plpgsql;
