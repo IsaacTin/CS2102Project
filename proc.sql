@@ -309,7 +309,9 @@ DECLARE
 BEGIN
     numRegistrations := SELECT count(*) 
                         FROM Registers
-                        WHERE sid = input_sessionId;
+                        WHERE sid = input_sessionId
+                        AND course_id = input_courseId
+                        AND launch_date = input_launchDate;
 
     /*Determine if input room id is valid, and sufficient space available*/
     IF NOT EXISTS(SELECT 1
@@ -339,7 +341,9 @@ BEGIN
     /*Don't perform request if at least one registration for session*/
     IF (SELECT count(*)
         FROM Registers
-        WHERE sid = input_sessionId) >= 1 THEN
+        WHERE sid = input_sessionId
+        AND course_id = input_courseId
+        AND launch_date = input_launchDate) >= 1 THEN
         RETURN;
     END IF;
 
