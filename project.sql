@@ -61,7 +61,7 @@ CREATE TABLE Managers (
 CREATE TABLE CourseAreaManaged (
     course_area_name                VARCHAR PRIMARY KEY, /*ensure 1 to 1 with CourseAreaManaged*/
     eid                             INT NOT NULL,
-    FOREIGN KEY (eid) REFERENCES Managers(eid)
+    FOREIGN KEY (eid) REFERENCES Managers(eid) ON DELETE CASCADE
     /* So there will only be exactly one instance of every course area here, and each one is taken by a manager, ensuring each course_area is taken by exactly 1 manager only*/
 );
 
@@ -92,7 +92,7 @@ CREATE TABLE Courses (
     title                           VARCHAR NOT NULL,
     description                     VARCHAR NOT NULL,
     duration                        INT NOT NULL, /**duration is in number of hours**/
-    FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name),
+    FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name) ON DELETE CASCADE,
     CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0)
 );
 
@@ -114,7 +114,7 @@ CREATE TABLE Credit_cards (
     expiry_date                     DATE NOT NULL,
     from_date                       DATE,
     cust_id                         INT NOT NULL,
-    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id)
+    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE
 );
 
 -- DONE
@@ -127,13 +127,6 @@ CREATE TABLE Buys (
     PRIMARY KEY(buys_date, cust_id, number, package_id)
 );
 
--- DONE
-CREATE TABLE Registers (
-    registers_date                  DATE,
-    cust_id                         INT REFERENCES Customers(cust_id),
-    number                          VARCHAR(16) REFERENCES Credit_cards(number),
-    PRIMARY KEY(registers_date, cust_id, number)
-);
 
 -- DONE
 CREATE TABLE Administrators (
@@ -153,7 +146,7 @@ CREATE TABLE CourseOfferings (
     eid                             INT NOT NULL, /* administrator id */
     PRIMARY KEY (launch_date, course_id), /*Weak entity of Offering is identified by Course*/
     FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE,
-    FOREIGN KEY (eid) REFERENCES Administrators(eid),
+    FOREIGN KEY (eid) REFERENCES Administrators(eid) ON DELETE CASCADE,
     CONSTRAINT target_number_registrations_positive CHECK (target_number_registrations >= 0),
     CONSTRAINT fees_positive CHECK (fees >= 0),
     CONSTRAINT registration_deadline_10_days_before_start_date CHECK (start_date - registration_deadline >= 10)
@@ -161,7 +154,7 @@ CREATE TABLE CourseOfferings (
 
 -- DONE
 CREATE TABLE CourseOfferingSessions (
-    sid                             INT UNIQUE, /* i rly dont think this should be unique cause 'The sessions for a course offering are numbered consecutively starting from 1'*/
+    sid                             INT, /*Took out unique here*/
     start_time                      TIME NOT NULL,
     end_time                        TIME NOT NULL,
     rid                             INT NOT NULL,
@@ -175,10 +168,10 @@ CREATE TABLE CourseOfferingSessions (
     PRIMARY KEY (sid, launch_date, course_id), /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
     CONSTRAINT time_check CHECK (
         (CASE 
-            WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time <> end_time) THEN
+            WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time < end_time) THEN
                 CASE
-                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00')
-                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '16:00:00') THEN (start_time >= TIME '14:00:00')
+                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00') 
+                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '18:00:00') THEN (start_time >= TIME '14:00:00') /* I think this one should be BETWEEN '14:00:00 AND 18:00:00 cuz 6pm is 18:00:00'*/
                     ELSE FALSE
                 END
             ELSE FALSE
@@ -190,15 +183,29 @@ CREATE TABLE CourseOfferingSessions (
 );
 
 -- DONE
+CREATE TABLE Registers (
+    registers_date                  DATE,
+    cust_id                         INT REFERENCES Customers(cust_id),
+    number                          VARCHAR(16) REFERENCES Credit_cards(number),
+    sid                             INT NOT NULL, 
+    course_id                       INT NOT NULL,
+    launch_date                     DATE NOT NULL, /*add in cuz i think its needed here*/
+    PRIMARY KEY(registers_date, cust_id, number, sid, course_id, launch_date),
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- DONE
 CREATE TABLE Redeems (
     redeems_date                    DATE,
     buys_date                       DATE,
-    sid                             INT NOT NULL,
+    sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
     cust_id                         INT,
     number                          VARCHAR(16),
     package_id                      INT,
-    FOREIGN KEY (buys_date, cust_id, number, package_id) REFERENCES Buys(buys_date, cust_id, number, package_id), -- Aggregation
-    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (buys_date, cust_id, number, package_id) REFERENCES Buys(buys_date, cust_id, number, package_id) ON DELETE CASCADE, -- Aggregation
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE,
     PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
 );
 
@@ -210,7 +217,7 @@ CREATE TABLE Pay_slips (
     num_work_days                   INT, /** number of days */
     eid                             INT,
     PRIMARY KEY (payment_date, eid),
-    FOREIGN KEY (eid) REFERENCES Employees(eid)
+    FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE
 );
 
 -- DONE
@@ -220,21 +227,27 @@ CREATE TABLE Cancels (
     package_credit                  INT,
     cust_id                         INT,
     sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
     PRIMARY KEY (date, cust_id, sid),
-    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id),
-    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid)
+    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE,
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON DELETE CASCADE
 );
 
 
 /*
 Constraints I think are not captured:
 
-The offerings for the same course have different launch dates.
 
-The seating capacity of a course session is equal to the seating capacity of the room where the session is conducted, 
+Isaac- I think my triggers covers the first and second constraint stated here. However, third constraint I haven't implemented yet
+
+
+1) The offerings for the same course have different launch dates.
+
+2) The seating capacity of a course session is equal to the seating capacity of the room where the session is conducted, 
 and the seating capacity of a course offering is equal to the sum of the seating capacities of its sessions
 
-A course offering is said to be available if the number of registrations received is no more than its seating capacity; 
+3) A course offering is said to be available if the number of registrations received is no more than its seating capacity; 
 otherwise, we say that a course offering is fully booked.
 
 
