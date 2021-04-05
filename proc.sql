@@ -272,3 +272,15 @@ $$ LANGUAGE plpgsql;
 
 
 CREATE OR REPLACE PROCEDURE add_course_offering(input_Cid INT, )
+
+/*
+  Q28: 
+*/ 
+CREATE OR REPLACE FUNCTION popular_courses() 
+RETURNS TABLE(course_id INT, title VARCHAR, course_area VARCHAR, num_offerings INT, num_registrations INT) AS $$
+DECLARE
+
+BEGIN
+
+END;
+$$ LANGUAGE plpgsql;

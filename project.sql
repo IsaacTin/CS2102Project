@@ -9,52 +9,6 @@ Full_time_Emp, Part_time_Emp, Employees, Pay_slips;
 
 -- DONE
 CREATE TABLE Course_packages (
-<<<<<<< HEAD
-    package_id                      INT PRIMARY KEY,
-    name                            VARCHAR,
-    price                           INT, 
-    sale_start_date                 DATE,
-    sale_end_date                   DATE,
-    num_free_registrations          INT 
-);
-
--- DONE
-CREATE TABLE Rooms (
-    rid                             INT PRIMARY KEY,
-    location                        VARCHAR,
-    seating_capacity                INT
-);
-
--- DONE
-CREATE TABLE Employees (
-    eid                             INT PRIMARY KEY,
-    name                            VARCHAR,
-    phone                           INT,
-    address                         VARCHAR,
-    email                           VARCHAR,
-    depart_date                     DATE NOT NULL,
-    join_date                       DATE NOT NULL
-);
-
--- DONE
-CREATE TABLE Full_time_Emp (
-    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
-    monthly_salary                  NUMERIC(36,2)
-);
-
--- DONE
-CREATE TABLE Part_time_Emp (
-    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
-    hourly_rate                     NUMERIC(36,2)
-);
-
--- DONE
-CREATE TABLE Managers (
-    eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
-);
-
--- DONE
-=======
     package_id                      INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
     price                           NUMERIC(36,2) NOT NULL, 
@@ -104,44 +58,12 @@ CREATE TABLE Managers (
 );
 
 -- DONE
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
 CREATE TABLE CourseAreaManaged (
     course_area_name                VARCHAR PRIMARY KEY, /*ensure 1 to 1 with CourseAreaManaged*/
     eid                             INT NOT NULL,
     FOREIGN KEY (eid) REFERENCES Managers(eid)
     /* So there will only be exactly one instance of every course area here, and each one is taken by a manager, ensuring each course_area is taken by exactly 1 manager only*/
 );
-<<<<<<< HEAD
-
-CREATE TABLE Instructors (
-    eid                             INT UNIQUE REFERENCES Employees(eid) ON DELETE CASCADE,
-    course_area_name                VARCHAR REFERENCES CourseAreaManaged(course_area_name),
-    PRIMARY KEY (eid, course_area_name) 
-);
-
--- DONE
-CREATE TABLE Part_time_instructors (
-    eid                             INT PRIMARY KEY,
-    FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
-    FOREIGN KEY (eid) REFERENCES Part_time_Emp(eid) ON DELETE CASCADE
-);
-
--- DONE
-CREATE TABLE Full_time_instructors (
-    eid                             INT PRIMARY KEY,
-    FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
-    FOREIGN KEY (eid) REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
-);
-
--- DONE
-CREATE TABLE Courses (
-    course_id                       INT PRIMARY KEY,
-    course_area_name                VARCHAR UNIQUE NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
-    title                           VARCHAR,
-    description                     VARCHAR,
-    duration                        INT, /**duration is in number of hours**/
-    FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name)
-=======
 
 CREATE TABLE Instructors (
     eid                             INT UNIQUE REFERENCES Employees(eid) ON DELETE CASCADE,
@@ -172,24 +94,15 @@ CREATE TABLE Courses (
     duration                        INT NOT NULL, /**duration is in number of hours**/
     FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name),
     CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0)
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
 );
 
 -- DONE
 CREATE TABLE Customers (
-<<<<<<< HEAD
-    cust_id                         INT UNIQUE,
-    phone                           INT,
-    address                         VARCHAR, /* added in address cuz its needed*/
-    email                           VARCHAR,
-    name                            VARCHAR,
-=======
     cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
     phone                           INT NOT NULL UNIQUE,
     address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
     email                           VARCHAR NOT NULL UNIQUE,
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
     number                          VARCHAR(16) UNIQUE, /** added inside unique to ensure each credit card is owned by only one customer*/
     PRIMARY KEY (cust_id, number)
 );
@@ -229,11 +142,7 @@ CREATE TABLE Administrators (
 
 -- DONE
 CREATE TABLE CourseOfferings (
-<<<<<<< HEAD
-    launch_date                     DATE,
-=======
     launch_date                     DATE NOT NULL,
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
     start_date                      DATE,
     end_date                        DATE,
     registration_deadline           DATE NOT NULL,
@@ -241,12 +150,6 @@ CREATE TABLE CourseOfferings (
     seating_capacity                INTEGER,
     fees                            NUMERIC(36,2) NOT NULL,
     course_id                       INT NOT NULL,
-<<<<<<< HEAD
-    eid                             INT NOT NULL,
-    PRIMARY KEY (launch_date, course_id), /*Weak entity of Offering is identified by Course*/
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE,
-    FOREIGN KEY (eid) REFERENCES Administrators(eid)
-=======
     eid                             INT NOT NULL, /* administrator id */
     PRIMARY KEY (launch_date, course_id), /*Weak entity of Offering is identified by Course*/
     FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE,
@@ -254,20 +157,13 @@ CREATE TABLE CourseOfferings (
     CONSTRAINT target_number_registrations_positive CHECK (target_number_registrations >= 0),
     CONSTRAINT fees_positive CHECK (fees >= 0),
     CONSTRAINT registration_deadline_10_days_before_start_date CHECK (start_date - registration_deadline >= 10)
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
 );
 
 -- DONE
 CREATE TABLE CourseOfferingSessions (
-<<<<<<< HEAD
-    sid                             INT UNIQUE,
-    start_time                      TIME,
-    end_time                        TIME,
-=======
     sid                             INT UNIQUE, /* i rly dont think this should be unique cause 'The sessions for a course offering are numbered consecutively starting from 1'*/
     start_time                      TIME NOT NULL,
     end_time                        TIME NOT NULL,
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
     rid                             INT NOT NULL,
     eid                             INT NOT NULL,
     course_id                       INT NOT NULL,
@@ -276,9 +172,6 @@ CREATE TABLE CourseOfferingSessions (
     FOREIGN KEY (rid) REFERENCES Rooms(rid),
     FOREIGN KEY (eid) REFERENCES Instructors(eid),
     FOREIGN KEY (course_id, launch_date) REFERENCES CourseOfferings(course_id, launch_date) ON DELETE CASCADE,
-<<<<<<< HEAD
-    PRIMARY KEY (sid, launch_date, course_id) /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
-=======
     PRIMARY KEY (sid, launch_date, course_id), /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
     CONSTRAINT time_check CHECK (
         (CASE 
@@ -294,7 +187,6 @@ CREATE TABLE CourseOfferingSessions (
     ),
     CONSTRAINT sid_more_than_1 CHECK (sid >= 1)
 
->>>>>>> 1ae4208385febef5e4e5837e28dd14e4b7609d05
 );
 
 -- DONE
