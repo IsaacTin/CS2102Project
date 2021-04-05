@@ -228,6 +228,7 @@ CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Address VARCH
 AS $$
 DECLARE
         employeeId INT;
+        area VARCHAR;
 BEGIN
         INSERT INTO Employees(name, phone, address, email, depart_date, join_date) 
         VALUES(input_Name, input_Phone, input_Address, input_Email, NULL, input_Join_date);
