@@ -359,17 +359,19 @@ $$ LANGUAGE plpgsql;
   Q24: Add a new session to a course offering
 */
 CREATE OR REPLACE PROCEDURE add_session(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_sessionDate DATE,
-                                        input_sessionStart INT, input_instructorId INT, input_roomId INT)
+                                        input_sessionStart TIME, input_instructorId INT, input_roomId INT)
 AS $$
 DECLARE
     registrationDeadline DATE;
-    endHour INT;
+    endHour TIME;
 BEGIN
     registrationDeadline := (SELECT registration_deadline
                              FROM CourseOfferings
                              WHERE course_id = input_courseId;
                              AND launch_date = input_launchDate);
     
+    -- TODO: Fix this, duration from Courses is INT, but endHour is TIME 
+    -- (perhaps schema change for endHour and startHour of CourseOfferingSessions?)
     endHour := input_sessionStart + (SELECT duration 
                                      FROM Courses
                                      WHERE course_id = input_courseId);
@@ -384,3 +386,4 @@ BEGIN
     VALUES (number, input_sessionStart, endHour, input_roomId, input_instructorId, input_courseId, input_sessionDate, input_launchDate);
 END;
 $$ LANGUAGE plpgsql;
+
