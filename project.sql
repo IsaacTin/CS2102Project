@@ -197,12 +197,14 @@ CREATE TABLE CourseOfferingSessions (
 CREATE TABLE Redeems (
     redeems_date                    DATE,
     buys_date                       DATE,
-    sid                             INT NOT NULL,
+    sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
     cust_id                         INT,
     number                          VARCHAR(16),
     package_id                      INT,
     FOREIGN KEY (buys_date, cust_id, number, package_id) REFERENCES Buys(buys_date, cust_id, number, package_id), -- Aggregation
-    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE,
     PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
 );
 
@@ -224,9 +226,11 @@ CREATE TABLE Cancels (
     package_credit                  INT,
     cust_id                         INT,
     sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
     PRIMARY KEY (date, cust_id, sid),
     FOREIGN KEY (cust_id) REFERENCES Customers(cust_id),
-    FOREIGN KEY (sid) REFERENCES CourseOfferingSessions(sid)
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date)
 );
 
 

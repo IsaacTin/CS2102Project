@@ -241,7 +241,7 @@ BEGIN
             LOOP
                 INSERT INTO CourseAreaManaged VALUES(area, employeeId);
             END LOOP;
-        ELSE IF (input_Category = 'instructor') THEN
+        ELSIF (input_Category = 'instructor') THEN
             FOREACH area IN ARRAY input_Areas
             LOOP
                 INSERT INTO Instructors VALUES(area, employeeId);
