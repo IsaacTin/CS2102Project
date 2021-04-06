@@ -30,7 +30,7 @@ END;
 $$ LANGUAGE plpgsql
 
 /*
-2)2. For each course offered by company, 
+2. For each course offered by company, 
 customer can register for at most one of its session before its registration deadline
 */
 CREATE TRIGGER check_register
@@ -221,7 +221,54 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+/*
+13. Each customer can have at most one active or partially active package.
+*/
+CREATE OR REPLACE FUNCTION check_customer_active_packages()
+RETURNS TRIGGER AS $$
+DECLARE
+    numActivePackages INT;
+    numPartiallyActivePackages INT;
+BEGIN
+    numActivePackages := (SELECT COUNT(*)
+                          FROM Buys
+                          WHERE NEW.cust_id = cust_id
+                          AND num_remaining_redemptions >= 1 -- At least one unused session in the package
+                          );
+    numPartiallyActivePackages := (SELECT COUNT(*)
+                                   FROM Buys B1 
+                                   WHERE NEW.cust_id = B1.cust_id
+                                   AND B1.num_remaining_redemptions = 0 -- All sessions in package have been redeemed
+                                   AND EXISTS(SELECT 1 -- 7 days before day of registration
+                                              FROM (Buys B2 JOIN Redeems R ON (B2.buys_date = R.buys_date
+                                                                              AND B2.cust_id = R.cust_id
+                                                                              AND B2.number = R.number
+                                                                              AND B2.package_id = R.package_id))
+                                              JOIN CourseOfferingSessions CS ON (B2.sid = CS.sid 
+                                                                                AND B2.course_id = CS.course_id 
+                                                                                AND B2.launch_date = CS.launch_date)
+                                              WHERE B2.cust_id = B1.cust_id
+                                              AND B2.package_id = B1.package_id
+                                              AND B2.num_remaining_redemptions = 0
+                                              AND CS.session_date <= CURRENT_DATE - INTERVAL '7 days' -- At least 7 days to get refund
+                                             )
+                                   );
 
+    /** At most one active or at most one partially active package */
+    IF (numActivePackages = 1 AND numPartiallyActivePackages = 0)
+    OR (numActivePackages = 0 AND numPartiallyActivePackages = 1)
+    OR (numActivePackages = 0 AND numPartiallyActivePackages = 0) THEN
+        RETURN NEW;
+    ELSE
+        RAISE EXCEPTION 'A customer can have at most one active or partially active package.';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_customer_active_packages
+BEFORE INSERT OR UPDATE ON Buys
+FOR EACH ROW
+EXECUTE FUNCTION check_customer_active_packages();
 
 /*ENDS HERE*/ 
 CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Address VARCHAR, input_Phone INT, input_Email VARCHAR, input_Salary NUMERIC(36,2), input_Join_date DATE, input_Category VARCHAR, input_Areas VARCHAR[])
