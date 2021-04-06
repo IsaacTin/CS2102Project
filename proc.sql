@@ -491,18 +491,18 @@ CREATE OR REPLACE PROCEDURE add_course_offering(input_Coid INT, input_Cid INT, i
 
 
 -- 18 
--- Does this include redeems as well?
+-- Does not include redeems
 CREATE OR REPLACE FUNCTION get_my_registrations(input_cust_id INT)
 RETURNS TABLE(course_name VARCHAR, course_fees NUMERIC(36,2), session_date DATE,
 session_start_hour TIME, session_duration INT, instructor_name VARCHAR) AS $$
 BEGIN
     RETURN QUERY
-        SELECT title, S2.fees, S2.session_date, S2.start_time, S2.duration, S2.instructor_name
+        SELECT title, S2.fees, S2.session_date, S2.start_time, duration, S2.instructor_name
         FROM 
-            (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.duration, S1.instructor_name
+            (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.instructor_name
             FROM 
                 (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
-                    (S0.end_time - S0.start_time) AS duration, S0.name AS instructor_name
+                    S0.name AS instructor_name
                 FROM (Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
                 WHERE S0.cust_id = input_cust_id
                     AND (
@@ -523,23 +523,51 @@ $$ LANGUAGE plpgsql;
 -- 19
 CREATE OR REPLACE PROCEDURE update_course_session(input_cust_id INT, input_course_id INT, new_sid INT)
 AS $$
+DECLARE
+    count INT;
+    num_registrations INT;
+    has_space BOOLEAN;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 
+    SELECT COUNT(*) INTO num_registrations
         FROM Registers
-        WHERE cust_id = input_cust_id AND course_id = input_course_id AND sid <> new_sid
-        ) THEN RETURN;
+        WHERE sid = new_sid
+        AND course_id = input_course_id;
+
+    IF ((SELECT COUNT(*)
+        FROM Registers
+        WHERE cust_id = input_cust_id 
+            AND course_id = input_course_id 
+            AND sid <> new_sid) <= 0) THEN RETURN;
     END IF;
 
-    -- incomplete; how do i know which session to update if there are multiple registered sessions
-
-
+    -- find out if there is space in new session
+    IF NOT EXISTS (SELECT 1
+                    FROM Rooms R
+                    WHERE R.rid = 
+                        (SELECT S1.rid
+                            FROM (Registers NATURAL JOIN CourseOfferingSessions) S1
+                            WHERE S1.cust_id = input_cust_id
+                                AND S1.course_id = course_id
+                                AND S1.sid = new_sid)
+                        AND R.seating_capacity >= (num_registrations + 1)
+    ) THEN RETURN;
+    ELSE
+        UPDATE Registers
+        SET sid = new_sid
+        WHERE course_id = input_course_id
+            AND cust_id = input_cust_id;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 -- 20
 CREATE OR REPLACE PROCEDURE cancel_registration(input_cust_id INT, input_course_id INT)
 AS $$
+DECLARE
+    curr_session_date DATE;
+    session_price NUMERIC(36,2);
+    session_id INT;
+    session_launch_date DATE;
 BEGIN 
     IF NOT EXISTS (
         SELECT 1 
@@ -548,7 +576,19 @@ BEGIN
         ) THEN RETURN;
     END IF;
 
-    -- not sure if i have to check for specific sessions
+    SELECT P1.session_date, P1.fees, P1.sid, P1.launch_date INTO curr_session_date, session_price, session_id, session_launch_date
+    FROM ((SELECT R1.sid
+            FROM Registers R1
+            WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id) AS S1
+            NATURAL JOIN
+            CourseOfferingSessions) AS P1;
+    
+    -- We treat fees in CourseOfferings as fees per session not fees per offering.
+    -- Only insert into cancels if refunded.
+    IF (curr_session_date - CURRENT_DATE > 7) THEN
+        INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
+        VALUES (CURRENT_DATE, 0.9 * session_price, NULL, input_cust_id, session_id, input_course_id, session_launch_date);
+    END IF;
     DELETE FROM Registers
     WHERE course_id = input_course_id
         AND cust_id = input_cust_id;
@@ -621,6 +661,28 @@ $$ LANGUAGE plpgsql;
 
 --27
 CREATE OR REPLACE FUNCTION top_packages(N INT)
+RETURNS TABLE (package_id INT, num_free_registrations INT, price NUMERIC(36,2), sale_start_date DATE, sale_end_date DATE, 
+    num_packages_sold INT) AS $$
+BEGIN
+    RETURN QUERY
+        WITH num_package_table(package_id, num_free_registrations, price, sale_start_date, sale_end_date, 
+            num_packages_sold) AS
+            (SELECT DISTINCT P1.package_id, P1.num_free_registrations, P1.price, P1.sale_start_date, P1.sale_end_date, 
+                (SELECT COUNT(*) 
+                    FROM Buys B1
+                    WHERE B1.package_id = P1.package_id) AS num_packages_sold
+                FROM Course_packages P1
+                ORDER BY (num_packages_sold, price) DESC),
+
+            num_package(package_id, num_packages_sold) AS
+            (SELECT N1.package_id, N1.num_packages_sold
+                FROM num_package_table
+                LIMIT N)
+        SELECT package_id, num_free_registrations, price, sale_start_date, sale_end_date, num_packages_sold
+            FROM num_package NATURAL JOIN num_package_table
+            ORDER BY (num_packages_sold, price) DESC;
+END;
+$$ LANGUAGE plpgsql;
 
 --29
 
@@ -632,18 +694,34 @@ DECLARE
     curr_month_date TIMESTAMP;
 BEGIN
     months_left := N;
-    curr_month := NOW();
+    curr_month_date := NOW();
     LOOP
         EXIT WHEN months_left = 0;
         SELECT to_char(curr_month_date, 'Month') INTO month;
         SELECT EXTRACT(YEAR FROM curr_month_date) INTO year;
-        total_salary_paid := (SELECT SUM(amount)
-                                FROM Pay_slips P1
-                                WHERE (SELECT EXTRACT(MONTH FROM P1.payment_date)) 
-                                    = (SELECT EXTRACT(MONTH FROM curr_month_date)));
-        
-
-
+        SELECT SUM(amount) INTO total_salary_paid
+            FROM Pay_slips P1
+            WHERE (SELECT EXTRACT(MONTH FROM P1.payment_date)) 
+                = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        SELECT COUNT(*) INTO total_num_package_sales
+            FROM Buys B1
+            WHERE (SELECT EXTRACT(MONTH FROM B1.buys_date)) 
+                = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        SELECT SUM(O1.fees) INTO total_fees_paid_credit_card
+            FROM Registers R1, CourseOfferingSessions S1
+            WHERE (SELECT EXTRACT(MONTH FROM R1.registers_date)) 
+                = (SELECT EXTRACT(MONTH FROM curr_month_date))
+                AND R1.sid = S1.sid;
+        SELECT SUM(C1.refund_amt) INTO total_refunds
+            FROM Cancels C1
+            WHERE C1.refund_amt IS NOT NULL
+                AND
+                (SELECT EXTRACT(MONTH FROM C1.date)) 
+                = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        SELECT COUNT(*) INTO num_package_registrations
+            FROM Redeems R1
+            WHERE (SELECT EXTRACT(MONTH FROM R1.redeems_date)) 
+                = (SELECT EXTRACT(MONTH FROM curr_month_date));
         curr_month_date := curr_month_date - INTERVAL '1 month';
         months_left := months_left - 1;
         RETURN NEXT;
