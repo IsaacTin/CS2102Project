@@ -127,6 +127,13 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
 
 
-
-
-
+CREATE TABLE Buys (
+    buys_date                       DATE,
+    num_remaining_redemptions       INT,
+    cust_id                         INT REFERENCES Customers(cust_id),
+    number                          VARCHAR(16) REFERENCES Credit_cards(number),
+    package_id                      INT REFERENCES Course_packages(package_id),
+    PRIMARY KEY(buys_date, cust_id, number, package_id)
+);
+DELETE FROM Buys; -- Empty table
+insert into Buys(buys_date, num_remaining_redemptions, cust_id, number, package_id) values('2012-07-04', 10, 1, 1234567812345678, 1);

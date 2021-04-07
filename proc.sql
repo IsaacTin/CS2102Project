@@ -244,9 +244,9 @@ BEGIN
                                                                               AND B2.cust_id = R.cust_id
                                                                               AND B2.number = R.number
                                                                               AND B2.package_id = R.package_id))
-                                              JOIN CourseOfferingSessions CS ON (B2.sid = CS.sid 
-                                                                                AND B2.course_id = CS.course_id 
-                                                                                AND B2.launch_date = CS.launch_date)
+                                              JOIN CourseOfferingSessions CS ON (R.sid = CS.sid 
+                                                                                AND R.course_id = CS.course_id 
+                                                                                AND R.launch_date = CS.launch_date)
                                               WHERE B2.cust_id = B1.cust_id
                                               AND B2.package_id = B1.package_id
                                               AND B2.num_remaining_redemptions = 0
@@ -254,10 +254,11 @@ BEGIN
                                              )
                                    );
 
+    RAISE NOTICE 'Active Packages: %', numActivePackages;
+    RAISE NOTICE 'Partially Active Packages: %', numPartiallyActivePackages;
+
     /** At most one active or at most one partially active package */
-    IF (numActivePackages = 1 AND numPartiallyActivePackages = 0)
-    OR (numActivePackages = 0 AND numPartiallyActivePackages = 1)
-    OR (numActivePackages = 0 AND numPartiallyActivePackages = 0) THEN
+    IF (numActivePackages = 0 AND numPartiallyActivePackages = 0) THEN
         RETURN NEW;
     ELSE
         RAISE EXCEPTION 'A customer can have at most one active or partially active package.';
@@ -265,6 +266,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS check_customer_active_packages ON Buys;
 CREATE TRIGGER check_customer_active_packages
 BEFORE INSERT OR UPDATE ON Buys
 FOR EACH ROW
