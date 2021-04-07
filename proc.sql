@@ -256,7 +256,9 @@ BEGIN
             INSERT INTO Managers VALUES(employeeId);
             FOREACH area IN ARRAY input_Areas
             LOOP 
-                INSERT INTO CourseAreaManaged VALUES(area, employeeId);
+                IF NOT EXISTS (SELECT 1 FROM CourseAreaManaged WHERE area = course_area_name) THEN
+                    INSERT INTO CourseAreaManaged VALUES(area, employeeId);
+                END IF;
             END LOOP;
         ELSIF (input_Category = 'instructor') THEN
             INSERT INTO Instructors VALUES(employeeId);
