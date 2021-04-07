@@ -126,13 +126,6 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
 
-<<<<<<< HEAD
-
-
-=======
-CALL 
->>>>>>> main
-
 DELETE FROM Employees; -- Empty table
 -- Manager
 CALL add_employee('Dagmar Ciani', 97853206, '98616 Petterle Lane', 'dciani1@abc.net.au', 1000.00, '2012-07-04', 'manager', array['information systems', 'networking']);
