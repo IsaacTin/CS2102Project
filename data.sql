@@ -135,7 +135,6 @@ CALL add_employee('Stefa Gino', 81720714, '17500 Summit Junction', 'sgino2@stori
 CALL add_employee('Dov Sicha', 97538260, '794 Packers Trail', 'dsicha3@hugedomains.com', 4000.00 , '2017-12-19', 'instructor', array['database', 'information systems']);
 CALL add_employee('Dena Tancock', 89273403, '50865 Katie Parkway', 'dtancock4@shareasale.com', 4000.00, '2017-08-22', 'administrator', NULL);
 
-asdlfjasdf royce
 DELETE FROM Customers; -- Empty table
 CALL add_customer('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633', '2020-08-09', '123');
 CALL add_customer('Meyer Tarzey', 87612176, '14315 Helena Park', 'mtarzey1@ucoz.ru', '5610657709090474', '2019-10-19', '321');
