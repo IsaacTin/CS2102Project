@@ -10,6 +10,7 @@ the same day and time (but idk if two sessions can be done on the same day at di
 
 DROP TRIGGER IF EXISTS check_course_offering_session ON CourseOfferingSessions;
 DROP TRIGGER IF EXISTS check_register ON Registers;
+DROP TRIGGER IF EXISTS check_redeems ON Redeems;
 DROP TRIGGER IF EXISTS update_course_offering_seating_capacity ON CourseOfferingSessions;
 DROP TRIGGER IF EXISTS check_rooms ON CourseOfferingSessions;
 DROP TRIGGER IF EXISTS check_instructor_specialization ON Instructors;
@@ -49,10 +50,24 @@ DECLARE
     registrationDeadline INT;
 BEGIN
     SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
-    IF EXISTS (SELECT 1 FROM Registers WHERE sid IN (SELECT sid FROM CourseOfferingSessions WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id AND sid <> NEW.sid) AND cust_id = NEW.cust_id)
-    OR
-    NEW.registers_date >= registration_deadline THEN
-        RAISE EXCEPTION 'Cannot register for more than one session of the same course offering and must register before registration deadline';
+    IF EXISTS (
+        SELECT 1 FROM Registers 
+        WHERE NEW.launch_date = launch_date
+        AND NEW.course_id = course_id   
+        AND NEW.cust_id = cust_id     
+    ) THEN
+        RAISE EXCEPTION 'Cannot register for more than one session of same course offering';
+        RETURN NULL;
+    ELSIF (NEW.registers_date >= registration_deadline) THEN
+        RAISE EXCEPTION 'Must register before registration deadline';
+        RETURN NULL;
+    ELSIF EXISTS (
+        SELECT 1 FROM Redeems
+        WHERE NEW.cust_id = cust_id 
+        AND NEW.course_id = course_id 
+        AND NEW.launch_date = launch_date
+    ) THEN
+        RAISE EXCEPTION 'This course session of this course offering has already been redeemed by customer';
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -64,6 +79,44 @@ CREATE TRIGGER check_register
 BEFORE INSERT ON Registers
 FOR EACH ROW
 EXECUTE FUNCTION check_register();
+
+/*check redeems*/
+
+CREATE OR REPLACE FUNCTION check_redeems()
+RETURNS TRIGGER AS $$
+DECLARE
+    registrationDeadline INT;
+BEGIN
+    SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
+    IF EXISTS (
+        SELECT 1 FROM Registers 
+        WHERE NEW.launch_date = launch_date
+        AND NEW.course_id = course_id   
+        AND NEW.cust_id = cust_id     
+    ) THEN
+        RAISE EXCEPTION 'Cannot register for more than one session of same course offering';
+        RETURN NULL;
+    ELSIF (NEW.registers_date >= registration_deadline) THEN
+        RAISE EXCEPTION 'Must register before registration deadline';
+        RETURN NULL;
+    ELSIF EXISTS (
+        SELECT 1 FROM Redeems
+        WHERE NEW.cust_id = cust_id 
+        AND NEW.course_id = course_id 
+        AND NEW.launch_date = launch_date
+    ) THEN
+        RAISE EXCEPTION 'This course session of this course offering has already been redeemed by customer';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER check_redeems
+BEFORE INSERT ON Redeems
+FOR EACH ROW
+EXECUTE FUNCTION check_redeems();
 
 
 /*
@@ -127,8 +180,6 @@ EXECUTE FUNCTION check_rooms();
 /*
 8.	Each instructor specializes in a set of one or more course areas 
 */
-
-/* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
 
 CREATE OR REPLACE FUNCTION check_instructor_specialization()
 RETURNS TRIGGER AS $$
@@ -287,7 +338,37 @@ BEFORE INSERT OR UPDATE ON Buys
 FOR EACH ROW
 EXECUTE FUNCTION check_customer_active_packages();
 
+/* 14. A course offering is said to be available 
+if the number of registrations received is no more than 
+its seating capacity; otherwise, we say that a course offering is fully booked. */
 
+CREATE OR REPLACE FUNCTION check_if_available_or_fully_booked()
+RETURNS TRIGGER AS $$
+DECLARE
+    seatingCapacity INT;
+    totalRegistersAndRedeems INT;
+BEGIN
+    SELECT (
+        (SELECT COUNT(*) FROM Registers WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+        +
+        (SELECT COUNT(*) FROM Redeems WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+    ) INTO totalRegistersAndRedeems;
+
+    SELECT seating_capacity FROM CourseOfferings WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id INTO seatingCapacity;
+    
+    IF (totalRegistersAndRedeems > seatingCapacity) THEN
+        RAISE EXCEPTION 'Course offering is fully booked';
+    ELSE
+        RAISE NOTICE 'Course offering is still available';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+    
+
+CREATE TRIGGER check_if_available_or_fully_booked
+AFTER INSERT OR UPDATE ON Registers
+FOR EACH ROW
+EXECUTE FUNCTION check_if_available_or_fully_booked();
 /*ENDS HERE*/ 
 
 -- 1
@@ -639,12 +720,12 @@ BEGIN
         UPDATE CourseOfferings
         SET 
             start_date = (
-                SELECT MAX(session_date) 
+                SELECT MIN(session_date) 
                 FROM CourseOfferingSessions 
                 WHERE input_Launch_date = launch_date AND input_Course_id = course_id
                 ),
             end_date = (
-                SELECT MIN(session_date)
+                SELECT MAX(session_date)
                 FROM CourseOfferingSessions
                 WHERE input_Launch_date = launch_date AND input_Course_id = course_id
             ),
