@@ -385,7 +385,7 @@ BEGIN
             SELECT 1 FROM CourseOfferingSessions C
             WHERE C.eid = r.eid 
             AND session_date = input_Date 
-            AND input_StartTime <= end_time AND end_time >= start_time /* cannot teach if session time is between start and end time of another session*/
+            AND input_StartTime <= end_time AND endTime >= start_time /* cannot teach if session time is between start and end time of another session*/
         ) 
         AND
         EXISTS (SELECT 1 FROM Courses C, Specializes S WHERE S.eid = r.eid AND S.course_area_name = C.course_area_name AND C.course_id = input_Cid)

@@ -128,7 +128,6 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 
 
 
-CALL 
 
 DELETE FROM Employees; -- Empty table
 CALL add_employee('Pearla Daubeny', 94950634, '2 Pepper Wood Center', 'pdaubeny0@ask.com', 36900.20, '2005-05-13', 'manager', array ['database']);
