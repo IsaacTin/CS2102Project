@@ -840,7 +840,7 @@ WHERE cust_id = input_cust_id;
 -- start date, end date, registration deadline, course fees, and the number of remaining seats. 
 -- The output is sorted in ascending order of registration deadline and course title.
 
-CREATE OR REPLACE FUNCTION get_available_course_packages() RETURNS TABLE (
+CREATE OR REPLACE FUNCTION get_available_course_offerings() RETURNS TABLE (
         title VARCHAR,
         course_area_name VARCHAR,
         start_date DATE,
