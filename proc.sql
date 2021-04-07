@@ -743,13 +743,7 @@ $$ LANGUAGE plpgsql;
 -- for each redeemed session (course name, session date, session start hour). 
 -- The redeemed session information is sorted in ascending order of session date and start hour.
 
-CREATE OR REPLACE PROCEDURE get_my_course_package(input_cust_id) AS $$
-DECLARE pkg_id INT;
-b_date DATE;
-BEGIN b_datepkg_id =
-SELECT package_id
-FROM Buys
-WHERE cust_id = input_cust_id;
+
 
 -- 15. get_available_course_offerings: This routine is used to retrieve all the available 
 -- course offerings that could be registered. The routine returns a table of records with 
@@ -757,7 +751,7 @@ WHERE cust_id = input_cust_id;
 -- start date, end date, registration deadline, course fees, and the number of remaining seats. 
 -- The output is sorted in ascending order of registration deadline and course title.
 
-CREATE OR REPLACE FUNCTION get_available_course_packages() RETURNS TABLE (
+CREATE OR REPLACE FUNCTION get_available_course_offerings() RETURNS TABLE (
         title VARCHAR,
         course_area_name VARCHAR,
         start_date DATE,
