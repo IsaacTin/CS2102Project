@@ -126,8 +126,6 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
 
-
-
 CALL 
 
 DELETE FROM Employees; -- Empty table
