@@ -1027,6 +1027,105 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--Q21
+CREATE OR REPLACE PROCEDURE update_instructor(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_instructorId INT)
+AS $$
+BEGIN 
+    /*Determine if input instructor id is valid*/
+    IF NOT EXISTS(SELECT 1
+                  FROM Instructors
+                  WHERE eid = input_instructorId) THEN
+        RETURN;
+    END IF;
+
+
+    /*Update if course session hasn't started*/
+    UPDATE CourseOfferingSessions
+    SET eid = input_instructorId
+    WHERE course_id = input_courseId
+    AND sid = input_sessionId
+    AND launch_date = input_launchDate
+    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+END;
+$$ LANGUAGE plpgsql;
+
+--22
+CREATE OR REPLACE PROCEDURE update_room(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_roomId INT)
+AS $$
+DECLARE
+    numRegistrations INT;
+BEGIN
+    numRegistrations := (SELECT count(*) 
+                         FROM Registers
+                         WHERE sid = input_sessionId
+                         AND course_id = input_courseId
+                         AND launch_date = input_launchDate);
+
+    /*Determine if input room id is valid, and sufficient space available*/
+    IF NOT EXISTS(SELECT 1
+                  FROM Rooms
+                  WHERE rid = input_roomId
+                  AND seating_capacity >= numRegistrations) THEN
+        RETURN;
+    END IF;
+
+    /*Update if course session hasn't started*/
+    UPDATE CourseOfferingSessions
+    SET rid = input_roomId
+    WHERE course_id = input_courseId
+    AND sid = input_sessionId
+    AND launch_date = input_launchDate
+    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+END;
+$$ LANGUAGE plpgsql;
+
+--23
+CREATE OR REPLACE PROCEDURE remove_session(input_courseId INT, input_launchDate DATE, input_sessionId INT)
+AS $$
+BEGIN
+    /*Don't perform request if at least one registration for session*/
+    IF (SELECT count(*)
+        FROM Registers
+        WHERE sid = input_sessionId
+        AND course_id = input_courseId
+        AND launch_date = input_launchDate) >= 1 THEN
+        RETURN;
+    END IF;
+
+    DELETE FROM CourseOfferingSessions
+    WHERE course_id = input_courseId
+    AND sid = input_sessionId
+    AND launch_date = input_launchDate
+    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+END;
+$$ LANGUAGE plpgsql;
+
+--24
+CREATE OR REPLACE PROCEDURE add_session(input_courseId INT, input_launchDate DATE, input_sessionId INT, input_sessionDate DATE,
+                                        input_sessionStart TIME, input_instructorId INT, input_roomId INT)
+AS $$
+DECLARE
+    registrationDeadline DATE;
+    endHour TIME;
+BEGIN
+    registrationDeadline := (SELECT registration_deadline
+                             FROM CourseOfferings
+                             WHERE course_id = input_courseId
+                             AND launch_date = input_launchDate);
+    
+    endHour := input_sessionStart + ((SELECT duration 
+                                     FROM Courses
+                                     WHERE course_id = input_courseId) * INTERVAL '1 hour');
+
+    /*Course offering registration deadline has not passed*/
+    IF registrationDeadline > CURRENT_DATE THEN
+		/*Check session constraints*/
+		INSERT INTO CourseOfferingSessions
+		VALUES (number, input_sessionStart, endHour, input_roomId, input_instructorId, input_courseId, input_sessionDate, input_launchDate);
+	END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 --25
 CREATE OR REPLACE FUNCTION pay_salary()
 RETURNS TABLE(eid INT, name VARCHAR, status VARCHAR(10), num_work_days INT,
@@ -1091,6 +1190,75 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--26
+CREATE OR REPLACE FUNCTION promote_courses() 
+RETURNS TABLE(cust_id INT, cust_name VARCHAR, course_area VARCHAR, 
+              course_id INT, course_title VARCHAR, launch_date DATE, 
+              registration_deadline DATE, fees NUMERIC(36, 2)) AS $$
+DECLARE
+    customerRecord RECORD;
+    courseRecord RECORD;
+BEGIN
+    FOR customerRecord IN (SELECT R1.cust_id, R1.name
+        FROM Registers R1
+        EXCEPT
+        SELECT R2.cust_id
+        FROM Registers R2
+        WHERE registers_date > (CURRENT_DATE - INTERVAL '6 months') -- Active customers
+		ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
+    )
+    LOOP
+        /*Every course area is of interest as there are no registrations yet*/
+        IF NOT EXISTS (SELECT 1 
+                    FROM Registers
+                    WHERE cust_id = input_custId) THEN
+            /*Get all courseRecords available, since all are of interest*/
+            FOR courseRecord IN (SELECT * 
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                ORDER BY CourseData.registration_deadline ASC)
+			LOOP
+                cust_id := customerRecord.cust_id;
+                cust_name = customerRecord.name;
+                course_area := courseRecord.course_area_name;
+                course_id := courseRecord.course_id;
+                course_title := courseRecord.title;
+                launch_date := courseRecord.launch_date;
+                IF courseRecord.registration_deadline > CURRENT_DATE THEN
+                    registration_deadline := courseRecord.registration_deadline;
+                END IF;
+                fees := courseRecord.fees;
+                RETURN NEXT;
+            END LOOP;
+        ELSE 
+            /*Get all course record that are in the customer's interest area*/
+            FOR courseRecord IN (SELECT *
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                WHERE EXISTS(SELECT 1
+                                             FROM (SELECT course_area
+													FROM (Registers R JOIN Courses C ON (R.course_id = C.course_id)) AS TopThree
+													WHERE customerRecord.cust_id = TopThree.cust_id
+													ORDER BY R.registers_date DESC -- Earliest to latest
+													LIMIT 3) as TopThreeAreas
+                                             WHERE TopThreeAreas.course_area = CourseData.course_area_name)
+                                ORDER BY CourseData.registration_deadline ASC)
+			LOOP
+                cust_id := customerRecord.cust_id;
+                cust_name = customerRecord.name;
+                course_area := courseRecord.course_area_name;
+                course_id := courseRecord.course_id;
+                course_title := courseRecord.title;
+                launch_date := courseRecord.launch_date;
+                IF courseRecord.registration_deadline > CURRENT_DATE THEN
+                    registration_deadline := courseRecord.registration_deadline;
+                END IF;
+                fees := courseRecord.fees;
+                RETURN NEXT;
+            END LOOP;
+        END IF;
+    END LOOP;    
+END;
+$$ LANGUAGE plpgsql;
+
 --27
 CREATE OR REPLACE FUNCTION top_packages(N INT)
 RETURNS TABLE (package_id INT, num_free_registrations INT, price NUMERIC(36,2), sale_start_date DATE, sale_end_date DATE, 
@@ -1121,6 +1289,90 @@ BEGIN
         SELECT package_id, num_free_registrations, price, sale_start_date, sale_end_date, num_packages_sold
             FROM num_package_nth NATURAL JOIN num_package_table
             ORDER BY (num_packages_sold, price) DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+--28
+CREATE OR REPLACE FUNCTION popular_courses() 
+RETURNS TABLE(course_id INT, title VARCHAR, course_area VARCHAR, num_offerings INT, num_registrations INT) AS $$
+DECLARE
+    firstCourseOffering RECORD;
+    secondCourseOffering RECORD;
+    firstNumRegistrations INT;
+    secondNumRegistrations INT;
+BEGIN
+    FOR firstCourseOffering IN 
+ 		(SELECT CO1.course_id
+        FROM CourseOfferings CO1, CourseOfferings CO2
+        WHERE CO1.course_id = CO2.course_id 
+        AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
+        AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
+        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
+    LOOP
+        FOR secondCourseOffering IN
+			(SELECT CO1.course_id
+			FROM CourseOfferings CO1, CourseOfferings CO2
+			WHERE CO1.course_id = CO2.course_id 
+			AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
+			AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
+			AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
+        LOOP
+            /*Different course, or same course and same course offering*/
+            IF firstCourseOffering.course_id <> secondCourseOffering.course_id 
+            OR (firstCourseOffering.course_id = secondCourseOffering.course_id 
+                AND firstCourseOffering.launch_date = secondCourseOffering.launch_date)
+            THEN
+                CONTINUE;
+            END IF;
+
+            firstNumRegistrations := (SELECT COUNT(*) 
+                                     FROM Registers R 
+                                     WHERE R.course_id = firstCourseOffering.course_id 
+                                     AND R.launch_date = firstCourseOffering.launch_date);
+
+            secondNumRegistrations := (SELECT COUNT(*) 
+                                     FROM Registers R 
+                                     WHERE R.course_id = secondCourseOffering.course_id 
+                                     AND R.launch_date = secondCourseOffering.launch_date);
+
+            /*Same course but different offering*/
+            IF firstCourseOffering.start_date > secondCourseOffering.start_date THEN -- First has later start date than second
+                IF firstNumRegistrations > secondNumRegistrations THEN
+                    course_id := firstCourseOffering.course_id;
+                    title :=  (SELECT title
+                              FROM Courses
+                              WHERE course_id = firstCourseOffering.course_id);
+                    course_area :=  (SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = firstCourseOffering.course_id);
+                    num_offerings := (SELECT COUNT(*)
+                                     FROM CourseOfferings CO
+                                     WHERE firstCourseOffering.course_id = CO.id
+                                     AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
+                    num_registrations := firstNumRegistrations;
+                    RETURN NEXT;
+                END IF;
+            ELSIF secondCourseOffering.start_date > firstCourseOffering.start_date THEN
+                IF secondNumRegistrations > firstNumRegistrations THEN
+                    course_id := secondCourseOffering.course_id;
+                    title :=  (SELECT title
+                              FROM Courses
+                              WHERE course_id = secondCourseOffering.course_id);
+                    course_area :=  (SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = secondCourseOffering.course_id);
+                    num_offerings := (SELECT COUNT(*)
+                                     FROM CourseOfferings CO
+                                     WHERE secondCourseOffering.course_id = CO.id
+                                     AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
+                    num_registrations := secondNumRegistrations;
+                    RETURN NEXT;
+                END IF;
+            ELSE
+                CONTINUE; -- Same start date, do nothing
+            END IF;
+        END LOOP;
+    END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1177,3 +1429,119 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+--30
+CREATE OR REPLACE FUNCTION view_manager_report() 
+RETURNS TABLE(manager_name VARCHAR, num_course_areas_managed INT, total_course_offerings_managed INT, 
+              total_net_registration_fee NUMERIC(36,2), course_title VARCHAR[]) AS $$
+DECLARE
+    managerCursor CURSOR FOR (
+        SELECT eid, name
+        FROM Employees NATURAL JOIN Managers
+        ORDER BY name
+    );
+    courseDetailCursor CURSOR FOR (
+        SELECT C.course_id, C.title, CO.launch_date, CO.end_date, CO.fees, CAM.eid
+        FROM (Courses C JOIN CourseOfferings CO ON (C.course_id = CO.course_id))
+        JOIN CourseAreaManaged CAM ON (C.course_area_name = CAM.course_area_name)
+        WHERE date_part('year', CO.end_date) = date_part('year', CURRENT_DATE)
+    );
+    managerRecord RECORD;
+    courseDetailRecord RECORD;
+    highestRegistrationCourse VARCHAR[];
+    highestRegistrationFee NUMERIC(36,2);
+    registrationFee NUMERIC(36,2);
+    temporarySum NUMERIC(36,2);
+    cancelledRegistrations INT;
+    registrations INT;
+BEGIN
+    OPEN managerCursor;
+    LOOP
+        FETCH managerCursor INTO managerRecord;
+        EXIT WHEN NOT FOUND;
+
+        /*Assign attributes*/
+        manager_name  := managerCursor.name;
+        num_course_areas_managed := (SELECT COUNT(*)
+                                     FROM CourseAreaManaged
+                                     WHERE eid = managerRecord.eid);
+        total_course_offerings_managed := (SELECT COUNT(*)
+                                           FROM (Courses C JOIN CourseOfferings CO ON (C.course_id = CO.course_id))
+                                           JOIN CourseAreaManaged CAM ON (C.course_area_name = CAM.course_area_name)
+                                           WHERE date_part('year', CO.end_date) = date_part('year', CURRENT_DATE)
+                                           AND CAM.eid = managerCursor.eid
+                                           );
+
+        /*Assign first in case detail not found in inner loop*/
+        total_net_registration_fee := 0;
+        highestRegistrationCourse := ARRAY[]::VARCHAR[];
+        highestRegistrationFee := -999; -- Arbitrarily large to act as starting minimum
+
+        /*Inner loop to get net registration fee and course with highest total net registration fee*/
+        OPEN courseDetailCursor;
+        LOOP
+            FETCH courseDetailCursor INTO courseDetailRecord;
+            EXIT WHEN NOT FOUND;
+
+            /*We don't care when employee is different*/
+            IF managerCursor.eid <> courseDetailCursor.eid THEN
+                CONTINUE;
+            END IF;
+
+            registrations := (SELECT COUNT(*) 
+                              FROM Registers
+                              WHERE course_id = courseDetailCursor.course_id
+                              AND launch_date = courseDetailCursor.launch_date);
+
+            /*Account for total registration fees paid via credit card payment*/
+            registrationFee := registrations * courseDetailCursor.fees;
+
+            cancelledRegistrations := (SELECT COUNT(*)
+                                       FROM Cancels
+                                       WHERE course_id = courseDetailCursor.launch_date
+                                       AND launch_date = courseDetailCursor.launch_date
+                                       AND refund_amt IS NOT NULL
+                                       );
+            temporarySum := (SELECT SUM(refund_amt)
+                             FROM Cancels
+                             WHERE course_id = courseDetailCursor.launch_date
+                             AND launch_date = courseDetailCursor.launch_date
+                             AND refund_amt IS NOT NULL
+                             );
+            IF temporarySum IS NULL THEN
+                temporarySum := 0;
+            END IF;
+
+            /*Account for refunds*/
+            registrationFee := registrationFee - temporarySum + (cancelledRegistrations * courseDetailCursor.fees);
+
+            temporarySum := (SELECT SUM(CP.price / CP.num_free_registrations)
+                             FROM (Redeems R JOIN Buys B ON (R.buys_date = B.buys_date
+                                                            AND R.cust_id = B.cust_id
+                                                            AND R.number = B.number
+                                                            AND R.package_id = B.package_id))
+                             JOIN Course_packages CP ON (B.package_id = CP.package_id)
+                             );
+            IF temporarySum IS NULL THEN
+                temporarySum := 0;
+            END IF;
+
+            /*Account for individual registrations*/
+            registrationFee := registrationFee + temporarySum;
+
+            total_net_registration_fee := total_net_registration_fee + registration_fee;
+            IF registrationFee > highestRegistrationFee THEN
+                highestRegistrationFee := registrationFee;
+                highestRegistrationCourse := ARRAY[courseDetailCursor.title];
+
+            ELSIF registrationFee = highestRegistrationFee THEN
+                highestRegistrationCourse := array_append(highestRegistrationCourse, courseDetailCursor.title);
+
+            END IF;
+
+        END LOOP;
+        CLOSE courseDetailCursor;
+        course_title := highestRegistrationCourse;
+    END LOOP;
+    CLOSE managerCursor;
+END;
+$$ LANGUAGE plpgsql;

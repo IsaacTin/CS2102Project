@@ -64,6 +64,20 @@ CALL add_employee('Delly Ebhardt', 85452369, '2 Ridgeway Pass', 'debhardtr@amazo
 CALL add_employee('Ursola Philbin', 85853736, '06 Oakridge Point', 'uphilbins@blogger.com', null, '2006-11-21');
 CALL add_employee('Rosina Petroselli', 80052001, '47 Garrison Place', 'rpetrosellit@cmu.edu', null, '2001-10-28');
 
+-- Full_time_Emp taken into consideration from add_employee function
+-- Part_time_Emp taken into consideration from add_employee function
+-- Managers taken into consideration from add_employee function
+-- CourseAreaManaged taken into consideration from add_employee function
+-- Instructors taken into consideration from add_employee function
+-- Specializes taken into consideration from add_employee function
+-- Part_time_instructors taken into consideration from add_employee function
+-- Full_time_instructors taken into consideration from add_employee function
+
+DELETE FROM Courses;
+CALL add_course()
+
+
+
 DELETE FROM Customers; -- Empty table
 CALL add_customer('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633', '2020-08-09', '123');
 CALL add_customer('Meyer Tarzey', 87612176, '14315 Helena Park', 'mtarzey1@ucoz.ru', '5610657709090474', '2019-10-19', '321');
@@ -95,6 +109,8 @@ CALL add_customer('Rriocard Olivi', 83260682, '67 Muir Terrace', 'roliviq@ocn.ne
 CALL add_customer('Cash Seabridge', 91573789, '35 Monterey Pass', 'cseabridger@addtoany.com', '5602222332369496');
 CALL add_customer('Bertine Philipeaux', 94488417, '43447 Bunker Hill Street', 'bphilipeauxs@example.com', '5602239970599127');
 CALL add_customer('Laraine Roeby', 98024514, '35 Russell Junction', 'lroebyt@clickbank.net', '5602234288106608');
+
+-- Credit_cards taken into consideration from add_employee function
 
 DELETE FROM Course_packages; -- Empty table
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Diomedea irrorata', 75.35, '2021-03-22', '2021-05-05', 9);
