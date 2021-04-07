@@ -128,15 +128,14 @@ insert into Course_packages (name, price, sale_start_date, sale_end_date, num_fr
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
 insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
 
-CALL 
-
 DELETE FROM Employees; -- Empty table
+-- Manager
+CALL add_employee('Dagmar Ciani', 97853206, '98616 Petterle Lane', 'dciani1@abc.net.au', 1000.00, '2012-07-04', 'manager', array['information systems', 'networking']);
 CALL add_employee('Pearla Daubeny', 94950634, '2 Pepper Wood Center', 'pdaubeny0@ask.com', 36900.20, '2005-05-13', 'manager', array ['database']);
-CALL add_employee('Dagmar Ciani', 97853206, '98616 Petterle Lane', 'dciani1@abc.net.au', 1000.00, '2012-07-04', 'manager', array['information systems', 'netowrking']);
+CALL add_employee('Isaac Tin', 82310393 , '2 rock look Center', 'hahahha@ask.com', 10234.20, '2008-05-13', 'manager', array ['database', 'information systems', 'networking']);
 CALL add_employee('Stefa Gino', 81720714, '17500 Summit Junction', 'sgino2@storify.com', 3000.00, '2017-11-21', 'instructor', array['database']);
 CALL add_employee('Dov Sicha', 97538260, '794 Packers Trail', 'dsicha3@hugedomains.com', 4000.00 , '2017-12-19', 'instructor', array['database', 'information systems']);
 CALL add_employee('Dena Tancock', 89273403, '50865 Katie Parkway', 'dtancock4@shareasale.com', 4000.00, '2017-08-22', 'administrator', NULL);
-
 
 DELETE FROM Customers; -- Empty table
 CALL add_customer('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633', '2020-08-09', '123');

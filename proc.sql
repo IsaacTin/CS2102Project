@@ -289,6 +289,8 @@ EXECUTE FUNCTION check_customer_active_packages();
 
 
 /*ENDS HERE*/ 
+
+-- 1
 CREATE OR REPLACE PROCEDURE add_employee(input_Name VARCHAR, input_Phone INT, input_Address VARCHAR,  input_Email VARCHAR, input_Salary NUMERIC(36,2), input_Join_date DATE, input_Category VARCHAR, input_Areas VARCHAR[])
 AS $$
 DECLARE
@@ -306,7 +308,9 @@ BEGIN
             INSERT INTO Managers VALUES(employeeId);
             FOREACH area IN ARRAY input_Areas
             LOOP 
-                INSERT INTO CourseAreaManaged VALUES(area, employeeId);
+                IF NOT EXISTS (SELECT 1 FROM CourseAreaManaged WHERE area = course_area_name) THEN
+                    INSERT INTO CourseAreaManaged VALUES(area, employeeId);
+                END IF;
             END LOOP;
         ELSIF (input_Category = 'instructor') THEN
             INSERT INTO Instructors VALUES(employeeId);
@@ -336,7 +340,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 2
 CREATE OR REPLACE PROCEDURE remove_employee(input_Eid INT, input_DepartureDate DATE) /*Not sure if i should implement the constraints as a trigger*/
 AS $$
 BEGIN 
@@ -370,7 +374,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
+-- 3
 CREATE OR REPLACE PROCEDURE add_customer(input_Name VARCHAR, input_Phone INT, input_address VARCHAR, input_Email VARCHAR, input_Number VARCHAR(16), input_Date DATE, input_CVV INT)
 AS $$
 DECLARE 
@@ -383,7 +387,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
+-- 4
 /*REMB TO MAKE A TRIGGER FOR THIS'*/
 CREATE OR REPLACE PROCEDURE update_credit_card(input_ID INT, input_Number VARCHAR(16), input_Date DATE, input_CVV INT)
 AS $$
@@ -400,7 +404,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 5
 CREATE OR REPLACE PROCEDURE add_course(input_Title VARCHAR, input_Desc VARCHAR, input_Area VARCHAR, input_Duration INT)
 AS $$
 BEGIN
@@ -411,7 +415,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 6
 CREATE OR REPLACE FUNCTION find_instructors(input_Cid INT, input_Date DATE, input_StartTime TIME)
 RETURNS TABLE (eid INT, name VARCHAR) AS $$
 DECLARE
@@ -435,7 +439,7 @@ BEGIN
             SELECT 1 FROM CourseOfferingSessions C
             WHERE C.eid = r.eid 
             AND session_date = input_Date 
-            AND input_StartTime <= end_time AND end_time >= start_time /* cannot teach if session time is between start and end time of another session*/
+            AND input_StartTime <= end_time AND endTime >= start_time /* cannot teach if session time is between start and end time of another session*/
         ) 
         AND
         EXISTS (SELECT 1 FROM Courses C, Specializes S WHERE S.eid = r.eid AND S.course_area_name = C.course_area_name AND C.course_id = input_Cid)
@@ -453,7 +457,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 7
 CREATE OR REPLACE FUNCTION get_available_instructors(input_Cid INT, input_StartDate DATE, input_EndDate DATE)
 RETURNS TABLE(eid INT, name VARCHAR, hours int, day DATE, availableHours TIME[]) AS $$
 DECLARE 
@@ -506,7 +510,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 8
 CREATE OR REPLACE FUNCTION find_rooms(input_Date DATE, input_StartTime TIME, input_Duration INT)
 RETURNS TABLE(rid INT) AS $$
 DECLARE 
@@ -543,7 +547,7 @@ $$ LANGUAGE plpgsql;
 
 
 
-
+-- 9
 CREATE OR REPLACE FUNCTION get_available_rooms(input_StartDate DATE, input_EndDate DATE) 
 RETURNS TABLE(rid INT, capacity INT, day DATE, availableHours TIME[]) AS $$
 DECLARE
@@ -587,7 +591,7 @@ $$ LANGUAGE plpgsql;
     
 
 
-
+-- 10
 CREATE OR REPLACE PROCEDURE add_course_offering(input_Course_id INT, input_Fees NUMERIC(36,2), input_Launch_date DATE, input_Registration_deadline DATE, input_Eid INT, input_Target_registration INT, input_SessionDateAndTime TIMESTAMP[], input_Rid INT[]) /*I'm having trouble with this as I do not know how to input all the sessions at one go*/
 AS $$
 DECLARE 
@@ -952,5 +956,4 @@ BEGIN
     INSERT INTO Rooms(location, seating_capacity) VALUES (input_location, input_seating_capacity) ;
 END;
 $$ LANGUAGE plpgsql;
-
 
