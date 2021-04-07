@@ -1,4 +1,271 @@
-DELETE FROM Course_packages;
+DROP TABLE IF EXISTS Course_packages, Credit_cards, Customers, Cancels, Registers, Redeems,
+Buys, CourseOfferingSessions, CourseOfferings, Courses, Rooms, Instructors,
+Administrators, Managers, CourseAreaManaged, Full_time_instructors, Part_time_instructors,
+Full_time_Emp, Part_time_Emp, Employees, Pay_slips, Specializes CASCADE;
+
+-- DONE
+CREATE TABLE Course_packages (
+    package_id                      INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    name                            VARCHAR NOT NULL,
+    price                           NUMERIC(36,2) NOT NULL, 
+    sale_start_date                 DATE NOT NULL,
+    sale_end_date                   DATE NOT NULL,
+    num_free_registrations          INT NOT NULL,
+    CONSTRAINT price_positive CHECK (price >= 0),
+    CONSTRAINT sale_duration_valid CHECK (sale_end_date - sale_start_date >= 0),
+    CONSTRAINT num_free_registrations_positive CHECK (num_free_registrations >= 0)
+);
+
+-- DONE
+CREATE TABLE Rooms (
+    rid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    location                        VARCHAR NOT NULL,
+    seating_capacity                INT NOT NULL
+);
+
+-- DONE
+CREATE TABLE Employees (
+    eid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    name                            VARCHAR NOT NULL,
+    phone                           INT NOT NULL UNIQUE,
+    address                         VARCHAR NOT NULL,
+    email                           VARCHAR NOT NULL UNIQUE,
+    depart_date                     DATE, /* Date has to be null if employee has not left company*/
+    join_date                       DATE NOT NULL
+);
+
+-- DONE
+CREATE TABLE Full_time_Emp (
+    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
+    monthly_salary                  NUMERIC(36,2),
+    CONSTRAINT monthly_salary_positive CHECK (monthly_salary >= 0)
+);
+
+-- DONE
+CREATE TABLE Part_time_Emp (
+    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
+    hourly_rate                     NUMERIC(36,2),
+    CONSTRAINT hourly_rate_positive CHECK (hourly_rate >= 0)
+);
+
+-- DONE
+CREATE TABLE Managers (
+    eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE CourseAreaManaged (
+    course_area_name                VARCHAR PRIMARY KEY, /*ensure 1 to 1 with CourseAreaManaged*/
+    eid                             INT NOT NULL,
+    FOREIGN KEY (eid) REFERENCES Managers(eid) ON DELETE CASCADE
+    /* So there will only be exactly one instance of every course area here, and each one is taken by a manager, ensuring each course_area is taken by exactly 1 manager only*/
+);
+
+CREATE TABLE Instructors (
+    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE /*I removed Unique as instructors can specialze in more than one area*/
+);
+
+CREATE TABLE Specializes (
+    eid                             INT REFERENCES Employees(eid) ON DELETE CASCADE,
+    course_area_name                VARCHAR REFERENCES CourseAreaManaged(course_area_name) ON DELETE CASCADE,
+    PRIMARY KEY (eid, course_area_name)
+);
+
+-- DONE
+CREATE TABLE Part_time_instructors (
+    eid                             INT PRIMARY KEY,
+    FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
+    FOREIGN KEY (eid) REFERENCES Part_time_Emp(eid) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE Full_time_instructors (
+    eid                             INT PRIMARY KEY,
+    FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
+    FOREIGN KEY (eid) REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE Courses (
+    course_id                       INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    course_area_name                VARCHAR UNIQUE NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
+    title                           VARCHAR NOT NULL,
+    description                     VARCHAR NOT NULL,
+    duration                        INT NOT NULL, /**duration is in number of hours**/
+    FOREIGN KEY (course_area_name) REFERENCES CourseAreaManaged(course_area_name) ON DELETE CASCADE,
+    CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0)
+);
+
+-- DONE
+CREATE TABLE Customers (
+    cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
+    name                            VARCHAR NOT NULL,
+    phone                           INT NOT NULL UNIQUE,
+    address                         VARCHAR NOT NULL, /* added in address cuz its needed*/
+    email                           VARCHAR NOT NULL UNIQUE,
+    number                          VARCHAR(16) UNIQUE, /** added inside unique to ensure each credit card is owned by only one customer*/
+    PRIMARY KEY (cust_id, number)
+);
+
+-- DONE
+CREATE TABLE Credit_cards (
+    number                          VARCHAR(16) PRIMARY KEY,
+    CVV                             INT NOT NULL,
+    expiry_date                     DATE NOT NULL,
+    from_date                       DATE,
+    cust_id                         INT NOT NULL,
+    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE Buys (
+    buys_date                       DATE,
+    num_remaining_redemptions       INT,
+    cust_id                         INT REFERENCES Customers(cust_id),
+    number                          VARCHAR(16) REFERENCES Credit_cards(number),
+    package_id                      INT REFERENCES Course_packages(package_id),
+    PRIMARY KEY(buys_date, cust_id, number, package_id)
+);
+
+-- DONE
+CREATE TABLE Administrators (
+    eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE CourseOfferings (
+    launch_date                     DATE NOT NULL,
+    start_date                      DATE,
+    end_date                        DATE,
+    registration_deadline           DATE NOT NULL,
+    target_number_registrations     INTEGER NOT NULL,
+    seating_capacity                INTEGER,
+    fees                            NUMERIC(36,2) NOT NULL,
+    course_id                       INT NOT NULL,
+    eid                             INT NOT NULL, /* administrator id */
+    PRIMARY KEY (launch_date, course_id), /*Weak entity of Offering is identified by Course*/
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE,
+    FOREIGN KEY (eid) REFERENCES Administrators(eid) ON DELETE CASCADE,
+    CONSTRAINT target_number_registrations_positive CHECK (target_number_registrations >= 0),
+    CONSTRAINT fees_positive CHECK (fees >= 0),
+    CONSTRAINT registration_deadline_10_days_before_start_date CHECK (start_date - registration_deadline >= 10)
+);
+
+-- DONE
+CREATE TABLE CourseOfferingSessions (
+    sid                             INT, /*Took out unique here*/
+    start_time                      TIME NOT NULL,
+    end_time                        TIME NOT NULL,
+    rid                             INT NOT NULL,
+    eid                             INT NOT NULL,
+    course_id                       INT NOT NULL,
+    session_date                    DATE,
+    launch_date                     DATE NOT NULL,
+    FOREIGN KEY (rid) REFERENCES Rooms(rid),
+    FOREIGN KEY (eid) REFERENCES Instructors(eid),
+    FOREIGN KEY (course_id, launch_date) REFERENCES CourseOfferings(course_id, launch_date) ON DELETE CASCADE,
+    PRIMARY KEY (sid, launch_date, course_id), /*Weak entity of Sessions is identified by weak entity of Offering which is identified by Course*/
+    CONSTRAINT time_check CHECK (
+        (CASE 
+            WHEN (start_time >= TIME '09:00:00' AND end_time <= TIME '18:00:00' AND start_time < end_time) THEN
+                CASE
+                    WHEN (start_time BETWEEN TIME '09:00:00' AND TIME '12:00:00') THEN (end_time <= TIME '12:00:00') 
+                    WHEN (end_time BETWEEN TIME '14:00:00' AND TIME '18:00:00') THEN (start_time >= TIME '14:00:00') /* I think this one should be BETWEEN '14:00:00 AND 18:00:00 cuz 6pm is 18:00:00'*/
+                    ELSE FALSE
+                END
+            ELSE FALSE
+        END
+        )
+    ),
+    CONSTRAINT sid_more_than_1 CHECK (sid >= 1),
+    CONSTRAINT session_date_after_launch_date CHECK (session_date >= launch_date)
+);
+
+-- DONE
+CREATE TABLE Registers (
+    registers_date                  DATE,
+    cust_id                         INT REFERENCES Customers(cust_id),
+    number                          VARCHAR(16) REFERENCES Credit_cards(number),
+    sid                             INT NOT NULL, 
+    course_id                       INT NOT NULL,
+    launch_date                     DATE NOT NULL, /*add in cuz i think its needed here*/
+    PRIMARY KEY(registers_date, cust_id, number, sid, course_id, launch_date),
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE Redeems (
+    redeems_date                    DATE,
+    buys_date                       DATE,
+    sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
+    cust_id                         INT,
+    number                          VARCHAR(16),
+    package_id                      INT,
+    FOREIGN KEY (buys_date, cust_id, number, package_id) REFERENCES Buys(buys_date, cust_id, number, package_id) ON DELETE CASCADE, -- Aggregation
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE,
+    PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
+);
+
+-- DONE
+CREATE TABLE Pay_slips (
+    payment_date                    DATE,
+    amount                          NUMERIC(36,2),
+    num_work_hours                  INT, /** number of hours */
+    num_work_days                   INT, /** number of days */
+    eid                             INT,
+    PRIMARY KEY (payment_date, eid),
+    FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE
+);
+
+-- DONE
+CREATE TABLE Cancels (
+    date                            DATE,
+    refund_amt                      INT,
+    package_credit                  INT,
+    cust_id                         INT,
+    sid                             INT,
+    course_id                       INT,
+    launch_date                     DATE,
+    PRIMARY KEY (date, cust_id, sid),
+    FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE,
+    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON DELETE CASCADE
+);
+
+
+DELETE FROM Course_packages; -- Empty table
+-- alternate way: call add_course_package('DiomedeaLALLAA irrorata',9, '2021-03-22', '2021-05-05',  75.35);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Diomedea irrorata', 75.35, '2021-03-22', '2021-05-05', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Nyctea scandiaca', 93.52, '2021-04-11', '2021-05-07', 5);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Larus dominicanus', 56.8, '2021-04-10', '2021-04-23', 3);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Gabianus pacificus', 69.67, '2021-03-19', '2021-04-30', 10);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Ara chloroptera', 70.25, '2021-03-24', '2021-05-03', 6);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Trachyphonus vaillantii', 86.01, '2021-04-05', '2021-04-29', 5);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Speothos vanaticus', 96.15, '2021-04-06', '2021-04-23', 1);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Tamiasciurus hudsonicus', 70.64, '2021-03-29', '2021-04-19', 10);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Ephippiorhynchus mycteria', 68.29, '2021-04-12', '2021-04-19', 2);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pycnonotus barbatus', 55.76, '2021-03-28', '2021-04-22', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Butorides striatus', 67.49, '2021-03-24', '2021-05-04', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Canis mesomelas', 78.15, '2021-04-04', '2021-05-05', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Rhea americana', 71.19, '2021-04-09', '2021-05-04', 1);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Eumetopias jubatus', 57.73, '2021-04-05', '2021-05-07', 4);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Geochelone elegans', 52.26, '2021-03-20', '2021-04-19', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Myotis lucifugus', 57.98, '2021-04-08', '2021-05-06', 4);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Salvadora hexalepis', 73.42, '2021-04-07', '2021-05-03', 8);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Macropus giganteus', 93.51, '2021-04-03', '2021-05-03', 3);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Dicrostonyx groenlandicus', 88.71, '2021-03-29', '2021-04-24', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Macaca fuscata', 50.91, '2021-03-18', '2021-04-24', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Butorides striatus', 69.67, '2021-03-26', '2021-05-10', 5);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Leprocaulinus vipera', 58.58, '2021-04-12', '2021-04-19', 7);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Sula dactylatra', 50.32, '2021-04-03', '2021-05-06', 7);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Coluber constrictor', 53.48, '2021-04-03', '2021-04-21', 9);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Estrilda erythronotos', 70.9, '2021-04-07', '2021-04-21', 10);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Grus canadensis', 58.45, '2021-03-31', '2021-05-05', 8);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pavo cristatus', 52.17, '2021-03-21', '2021-04-26', 8);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Papio ursinus', 59.44, '2021-03-22', '2021-04-25', 4);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
+insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
 
 DELETE FROM Rooms; -- Empty table
 CALL add_room('1 Everett Drive', 33);
@@ -74,76 +341,124 @@ CALL add_employee('Rosina Petroselli', 80052001, '47 Garrison Place', 'rpetrosel
 -- Full_time_instructors taken into consideration from add_employee function
 
 DELETE FROM Courses;
-CALL add_course()
-
-
+CALL add_course('Fiveclub', 'Toxic eff of harmful algae and algae toxins, slf-hrm, subs', 'networking', 1);
+CALL add_course('Buzzbean', 'Melanocytic nevi of right upper limb, including shoulder', 'database', 2);
+CALL add_course('Izio', 'Age-rel osteopor w current path fracture, unsp femur, init', 'networking', 3);
+CALL add_course('Npath', 'Nondisp midcervical fx l femur, subs for clos fx w nonunion', 'database', 4);
+CALL add_course('Blogtags', 'Oth injuries of left shoulder and upper arm, init encntr', 'database', 1);
+CALL add_course('Buzzshare', 'Unsp intracap fx r femr, subs for opn fx type I/2 w malunion', 'networking', 2);
+CALL add_course('Aimbo', 'Displ commnt fx shaft of ulna, r arm, 7thQ', 'information systems', 3);
+CALL add_course('Trilia', 'Enlargement of left orbit', 'database', 4);
+CALL add_course('Quimba', 'Underdosing of calcium-channel blockers', 'networking', 'networking', 1);
+CALL add_course('Midel', 'Other fracture of shaft of radius, left arm', 'information systems', 2);
+CALL add_course('Twitterworks', 'Malformation of placenta, unspecified, first trimester', 'networking', 3);
+CALL add_course('Geba', 'Injury to barefoot water-skier, sequela', 'database', 4);
+CALL add_course('Gabvine', 'Animal-rider injured in collision w 2/3-whl mv', 'information systems', 1);
+CALL add_course('Trilith', 'Superficial foreign body of other part of head, init encntr', 'networking', 2);
+CALL add_course('Eare', 'Nondisplaced oth extrartic fracture of l calcaneus, sequela', 'database', 3);
 
 DELETE FROM Customers; -- Empty table
-CALL add_customer('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633', '2020-08-09', '123');
-CALL add_customer('Meyer Tarzey', 87612176, '14315 Helena Park', 'mtarzey1@ucoz.ru', '5610657709090474', '2019-10-19', '321');
+CALL add_customer('Sanders Gidley', 99820092, '78786 Steensland Park', 'sgidley0@google.co.jp', '5602250147265633', '2020-08-09', '001');
+CALL add_customer('Meyer Tarzey', 87612176, '14315 Helena Park', 'mtarzey1@ucoz.ru', '5610657709090474', '2019-10-19', '002');
 CALL add_customer('Webster Spaxman', 94518528, '48278 Fairfield Road', 'wspaxman2@amazon.co.uk', '5602230651814471', '2018-10-19', '892');
 CALL add_customer('George Jahncke', 90421305, '14705 Atwood Court', 'gjahncke3@ustream.tv', '5602240849542561', '2017-09-09', '100');
 CALL add_customer('Fritz Fawkes', 92379525, '2551 Canary Way', 'ffawkes4@samsung.com', '5610065941511739', '2026-10-19', '200');
-CALL add_customer('Emmy Ridsdale', 82288253, '76513 Oak Park', 'eridsdale5@reuters.com', '5610601476073800');
-CALL add_customer('Yorke Tolley', 82295969, '8113 Scoville Center', 'ytolley6@jugem.jp', '5602219467996275');
-CALL add_customer('Inesita Keirl', 80989670, '52 Northwestern Junction', 'ikeirl7@surveymonkey.com', '5602251749948923');
-CALL add_customer('Hayley Bowley', 80371232, '47 Ronald Regan Court', 'hbowley8@digg.com', '5602242735189440');
-CALL add_customer('Dion Gebhard', 90651062, '1085 Lotheville Circle', 'dgebhard9@ftc.gov', '5602229479310241');
-CALL add_customer('Kev Castro', 90769230, '92456 Londonderry Park', 'kcastroa@comcast.net', '5602258275479223');
-CALL add_customer('Sanford Girardin', 97470262, '94175 Nevada Alley', 'sgirardinb@canalblog.com', '5602254153002112');
-CALL add_customer('Yankee Eake', 98043174, '16 Johnson Hill', 'yeakec@skype.com', '5602248853693311');
-CALL add_customer('Karyl McGreary', 92579048, '7607 Main Court', 'kmcgrearyd@soundcloud.com', '5602251427134135');
-CALL add_customer('Franky Ouver', 87457533, '4286 Mayfield Crossing', 'fouvere@mozilla.org', '5602231214008650');
-CALL add_customer('Pauly Agar', 87998820, '0 Aberg Plaza', 'pagarf@geocities.com', '5602215736244539');
-CALL add_customer('Maribel Blabey', 89197032, '91702 Elgar Park', 'mblabeyg@webeden.co.uk', '5602210355749256');
-CALL add_customer('Clo Coghlan', 96834256, '44210 Eagle Crest Drive', 'ccoghlanh@google.com.hk', '5602218964441868');
-CALL add_customer('Artair Mousdall', 80476520, '345 Surrey Alley', 'amousdalli@yale.edu', '5602231452172101');
-CALL add_customer('Mariette Cubbon', 92742855, '257 Arkansas Center', 'mcubbonj@lulu.com', '5602222546621815');
-CALL add_customer('Spence Rault', 89689405, '94 Independence Place', 'sraultk@earthlink.net', '5602255199953572');
-CALL add_customer('Cassi Vanlint', 81910481, '04 Cardinal Lane', 'cvanlintl@newyorker.com', '5602242696480846');
-CALL add_customer('Benny Stockin', 95301632, '32431 Golf View Street', 'bstockinm@berkeley.edu', '5602253645715075');
-CALL add_customer('Cary Meldon', 80270431, '40 Buell Drive', 'cmeldonn@goodreads.com', '5602231760069890');
-CALL add_customer('Stanfield McUre', 82232366, '466 Maywood Park', 'smcureo@howstuffworks.com', '5602251005404215');
-CALL add_customer('Derry Arundell', 86975680, '65 Bellgrove Street', 'darundellp@aol.com', '5602213420937658');
-CALL add_customer('Rriocard Olivi', 83260682, '67 Muir Terrace', 'roliviq@ocn.ne.jp', '5602227223974999');
-CALL add_customer('Cash Seabridge', 91573789, '35 Monterey Pass', 'cseabridger@addtoany.com', '5602222332369496');
-CALL add_customer('Bertine Philipeaux', 94488417, '43447 Bunker Hill Street', 'bphilipeauxs@example.com', '5602239970599127');
-CALL add_customer('Laraine Roeby', 98024514, '35 Russell Junction', 'lroebyt@clickbank.net', '5602234288106608');
+CALL add_customer('Emmy Ridsdale', 82288253, '76513 Oak Park', 'eridsdale5@reuters.com', '5610601476073800', '2021-11-19', '234');
+CALL add_customer('Yorke Tolley', 82295969, '8113 Scoville Center', 'ytolley6@jugem.jp', '5602219467996275', '2022-11-19', '224');
+CALL add_customer('Inesita Keirl', 80989670, '52 Northwestern Junction', 'ikeirl7@surveymonkey.com', '5602251749948923', '2023-11-19', '111');
+CALL add_customer('Hayley Bowley', 80371232, '47 Ronald Regan Court', 'hbowley8@digg.com', '5602242735189440', '2023-12-19', '112');
+CALL add_customer('Dion Gebhard', 90651062, '1085 Lotheville Circle', 'dgebhard9@ftc.gov', '5602229479310241', '2023-01-19', '113');
+CALL add_customer('Kev Castro', 90769230, '92456 Londonderry Park', 'kcastroa@comcast.net', '5602258275479223', '2023-02-19', '114');
+CALL add_customer('Sanford Girardin', 97470262, '94175 Nevada Alley', 'sgirardinb@canalblog.com', '5602254153002112', '2023-03-19', '115');
+CALL add_customer('Yankee Eake', 98043174, '16 Johnson Hill', 'yeakec@skype.com', '5602248853693311', '2023-04-19', '116');
+CALL add_customer('Karyl McGreary', 92579048, '7607 Main Court', 'kmcgrearyd@soundcloud.com', '5602251427134135', '2023-05-19', '117');
+CALL add_customer('Franky Ouver', 87457533, '4286 Mayfield Crossing', 'fouvere@mozilla.org', '5602231214008650', '2023-06-19', '118');
+CALL add_customer('Pauly Agar', 87998820, '0 Aberg Plaza', 'pagarf@geocities.com', '5602215736244539', '2023-07-19', '119');
+CALL add_customer('Maribel Blabey', 89197032, '91702 Elgar Park', 'mblabeyg@webeden.co.uk', '5602210355749256', '2023-08-19', '120');
+CALL add_customer('Clo Coghlan', 96834256, '44210 Eagle Crest Drive', 'ccoghlanh@google.com.hk', '5602218964441868', '2023-09-19', '121');
+CALL add_customer('Artair Mousdall', 80476520, '345 Surrey Alley', 'amousdalli@yale.edu', '5602231452172101', '2023-10-19', '122');
+CALL add_customer('Mariette Cubbon', 92742855, '257 Arkansas Center', 'mcubbonj@lulu.com', '5602222546621815', '2023-11-19', '125');
+CALL add_customer('Spence Rault', 89689405, '94 Independence Place', 'sraultk@earthlink.net', '5602255199953572', '2023-12-01', '126');
+CALL add_customer('Cassi Vanlint', 81910481, '04 Cardinal Lane', 'cvanlintl@newyorker.com', '5602242696480846', '2023-12-02', '127');
+CALL add_customer('Benny Stockin', 95301632, '32431 Golf View Street', 'bstockinm@berkeley.edu', '5602253645715075', '2023-12-03', '128');
+CALL add_customer('Cary Meldon', 80270431, '40 Buell Drive', 'cmeldonn@goodreads.com', '5602231760069890', '2023-12-04', '129');
+CALL add_customer('Stanfield McUre', 82232366, '466 Maywood Park', 'smcureo@howstuffworks.com', '5602251005404215', '2023-12-05', '130');
+CALL add_customer('Derry Arundell', 86975680, '65 Bellgrove Street', 'darundellp@aol.com', '5602213420937658', '2023-12-06', '131');
+CALL add_customer('Rriocard Olivi', 83260682, '67 Muir Terrace', 'roliviq@ocn.ne.jp', '5602227223974999', '2023-12-07', '132');
+CALL add_customer('Cash Seabridge', 91573789, '35 Monterey Pass', 'cseabridger@addtoany.com', '5602222332369496', '2023-12-08', '133');
+CALL add_customer('Bertine Philipeaux', 94488417, '43447 Bunker Hill Street', 'bphilipeauxs@example.com', '5602239970599127', '2023-12-09', '134');
+CALL add_customer('Laraine Roeby', 98024514, '35 Russell Junction', 'lroebyt@clickbank.net', '5602234288106608', '2023-12-10', '135');
 
 -- Credit_cards taken into consideration from add_employee function
 
-DELETE FROM Course_packages; -- Empty table
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Diomedea irrorata', 75.35, '2021-03-22', '2021-05-05', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Nyctea scandiaca', 93.52, '2021-04-11', '2021-05-07', 5);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Larus dominicanus', 56.8, '2021-04-10', '2021-04-23', 3);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Gabianus pacificus', 69.67, '2021-03-19', '2021-04-30', 10);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Ara chloroptera', 70.25, '2021-03-24', '2021-05-03', 6);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Trachyphonus vaillantii', 86.01, '2021-04-05', '2021-04-29', 5);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Speothos vanaticus', 96.15, '2021-04-06', '2021-04-23', 1);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Tamiasciurus hudsonicus', 70.64, '2021-03-29', '2021-04-19', 10);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Ephippiorhynchus mycteria', 68.29, '2021-04-12', '2021-04-19', 2);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pycnonotus barbatus', 55.76, '2021-03-28', '2021-04-22', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Butorides striatus', 67.49, '2021-03-24', '2021-05-04', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Canis mesomelas', 78.15, '2021-04-04', '2021-05-05', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Rhea americana', 71.19, '2021-04-09', '2021-05-04', 1);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Eumetopias jubatus', 57.73, '2021-04-05', '2021-05-07', 4);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Geochelone elegans', 52.26, '2021-03-20', '2021-04-19', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Myotis lucifugus', 57.98, '2021-04-08', '2021-05-06', 4);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Salvadora hexalepis', 73.42, '2021-04-07', '2021-05-03', 8);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Macropus giganteus', 93.51, '2021-04-03', '2021-05-03', 3);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Dicrostonyx groenlandicus', 88.71, '2021-03-29', '2021-04-24', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Macaca fuscata', 50.91, '2021-03-18', '2021-04-24', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Butorides striatus', 69.67, '2021-03-26', '2021-05-10', 5);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Leprocaulinus vipera', 58.58, '2021-04-12', '2021-04-19', 7);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Sula dactylatra', 50.32, '2021-04-03', '2021-05-06', 7);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Coluber constrictor', 53.48, '2021-04-03', '2021-04-21', 9);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Estrilda erythronotos', 70.9, '2021-04-07', '2021-04-21', 10);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Grus canadensis', 58.45, '2021-03-31', '2021-05-05', 8);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pavo cristatus', 52.17, '2021-03-21', '2021-04-26', 8);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Papio ursinus', 59.44, '2021-03-22', '2021-04-25', 4);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Panthera pardus', 68.32, '2021-03-28', '2021-05-07', 7);
-insert into Course_packages (name, price, sale_start_date, sale_end_date, num_free_registrations) values ('Pelecanus conspicillatus', 70.95, '2021-03-20', '2021-04-29', 5);
+DELETE FROM Buys;
+CALL buy_course_package(1, 1);
+CALL buy_course_package(2, 2);
+CALL buy_course_package(3, 3);
+CALL buy_course_package(4, 4);
+CALL buy_course_package(5, 5);
+CALL buy_course_package(6, 6);
+CALL buy_course_package(7, 7);
+CALL buy_course_package(8, 8);
+CALL buy_course_package(9, 9);
+CALL buy_course_package(10, 10);
+CALL buy_course_package(11, 11);
+CALL buy_course_package(12, 12);
+CALL buy_course_package(13, 13);
+CALL buy_course_package(14, 14);
+CALL buy_course_package(15, 15);
+CALL buy_course_package(1, 16);
+CALL buy_course_package(2, 17);
+CALL buy_course_package(3, 18);
+CALL buy_course_package(4, 19);
+CALL buy_course_package(5, 20);
+CALL buy_course_package(10, 21);
+CALL buy_course_package(11, 22);
+CALL buy_course_package(12, 23);
+CALL buy_course_package(13, 24);
+CALL buy_course_package(14, 25);
+CALL buy_course_package(15, 26);
+CALL buy_course_package(1, 27);
+CALL buy_course_package(2, 28);
+CALL buy_course_package(3, 29);
 
+-- Administrator taken into consideration from add_employee function
+
+-- TODO: CourseOfferings using add_course_offering function
+-- TODO: CourseOfferingSessions using add_course_offering function
+add_course_offering(input_Course_id INT, input_Fees NUMERIC(36,2), input_Launch_date DATE, input_Registration_deadline DATE, 
+                    input_Eid INT, input_Target_registration INT, input_SessionDateAndTime TIMESTAMP[], input_Rid INT[])
+CALL add_course_offering(1, 50, '2021-01-01', '2021-06-01', 1, 300, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(2, 55, '2021-01-02', '2021-06-02', 2, 400, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(3, 60, '2021-01-03', '2021-06-03', 3, 500, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(4, 65, '2021-01-04', '2021-06-04', 4, 600, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(5, 70, '2021-01-05', '2021-06-05', 5, 700, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(6, 75, '2021-01-06', '2021-06-06', 6, 800, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(7, 80, '2021-01-07', '2021-06-07', 7, 900, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(8, 85, '2021-01-08', '2021-06-08', 8, 1000, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(9, 90, '2021-01-09', '2021-06-09', 9, 100, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(10, 95, '2021-01-10', '2021-06-10', 10, 200, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(11, 100, '2021-01-11', '2021-06-11', 11, 1100, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(12, 105, '2021-01-12', '2021-06-12', 12, 1200, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(13, 110, '2021-01-13', '2021-06-13', 13, 1300, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(14, 115, '2021-01-14', '2021-06-14', 14, 1400, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+CALL add_course_offering(15, 120, '2021-01-15', '2021-06-15', 15, 1500, array['2021-05-20 15:00:00', '2021-05-21 15:00:00' ], array[1]);
+
+-- TODO: Registers using register_session function: 
+--          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
+CALL register_session(1, 1, '', 1, 'credit card');
+CALL register_session()
+-- TODO: Redeems using register_session function: 
+--          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
+-- TODO: Pay_slips using pay_salary function
+SELECT pay_salary();
+
+-- TODO: Cancels using cancel_registration function
+
+
+/**********************************************************/
+/** This point onwards is not relavant to data population */
+/**********************************************************/
 DELETE FROM Employees; -- Empty table
 -- Manager
 CALL add_employee('Dagmar Ciani', 97853206, '98616 Petterle Lane', 'dciani1@abc.net.au', 1000.00, '2012-07-04', 'manager', array['information systems', 'networking']);
