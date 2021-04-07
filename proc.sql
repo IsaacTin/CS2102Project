@@ -772,10 +772,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE PROCEDURE add_room(location VARCHAR, seating_capacity INT)
+CREATE OR REPLACE PROCEDURE add_room(input_location VARCHAR, input_seating_capacity INT)
 AS $$
 BEGIN
-    INSERT INTO Rooms(location, seating_capacity);
+    INSERT INTO Rooms(location, seating_capacity) VALUES (input_location, input_seating_capacity) ;
 END;
 $$ LANGUAGE plpgsql;
 
