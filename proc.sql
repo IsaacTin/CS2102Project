@@ -770,4 +770,12 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
---30
+
+
+CREATE OR REPLACE PROCEDURE add_room(location VARCHAR, seating_capacity INT)
+AS $$
+BEGIN
+    INSERT INTO Rooms(location, seating_capacity);
+END;
+$$ LANGUAGE plpgsql;
+
