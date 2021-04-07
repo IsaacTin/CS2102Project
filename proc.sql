@@ -497,7 +497,7 @@ RETURNS TABLE(course_name VARCHAR, course_fees NUMERIC(36,2), session_date DATE,
 session_start_hour TIME, session_duration INT, instructor_name VARCHAR) AS $$
 BEGIN
     RETURN QUERY
-        SELECT title, S2.fees, S2.session_date, S2.start_time, duration, S2.instructor_name
+        (SELECT title, S2.fees, S2.session_date, S2.start_time, duration, S2.instructor_name
         FROM 
             (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.instructor_name
             FROM 
@@ -514,12 +514,31 @@ BEGIN
                         )
                     AND S0.depart_date IS NULL) AS S1 -- just to make sure
                 NATURAL JOIN CourseOfferings) AS S2
-            NATURAL JOIN Courses
-        ORDER BY (S2.session_date, S2.start_time) ASC;
+            NATURAL JOIN Courses)
+        UNION
+        (SELECT title, S4.fees, S4.session_date, S4.start_time, duration, S4.instructor_name
+        FROM 
+            (SELECT S3.course_id, fees, S3.session_date, S3.start_time, S3.instructor_name
+            FROM 
+                (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
+                    S0.name AS instructor_name
+                FROM (Redeems NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
+                WHERE S0.cust_id = input_cust_id
+                    AND (
+                        CASE
+                        WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
+                        WHEN S0.session_date > CURRENT_DATE THEN TRUE
+                        ELSE FALSE
+                        END
+                        )
+                    AND S0.depart_date IS NULL) AS S3 -- just to make sure
+                NATURAL JOIN CourseOfferings) AS S4
+            NATURAL JOIN Courses)
+        ORDER BY (session_date, start_time) ASC;
 END;
 $$ LANGUAGE plpgsql;
         
-
+-- TODO: trigger to prevent customer from registering and redeeming same session.
 -- 19
 CREATE OR REPLACE PROCEDURE update_course_session(input_cust_id INT, input_course_id INT, new_sid INT)
 AS $$
@@ -537,25 +556,48 @@ BEGIN
         FROM Registers
         WHERE cust_id = input_cust_id 
             AND course_id = input_course_id 
-            AND sid <> new_sid) <= 0) THEN RETURN;
-    END IF;
-
-    -- find out if there is space in new session
-    IF NOT EXISTS (SELECT 1
-                    FROM Rooms R
-                    WHERE R.rid = 
-                        (SELECT S1.rid
-                            FROM (Registers NATURAL JOIN CourseOfferingSessions) S1
-                            WHERE S1.cust_id = input_cust_id
-                                AND S1.course_id = course_id
-                                AND S1.sid = new_sid)
-                        AND R.seating_capacity >= (num_registrations + 1)
-    ) THEN RETURN;
-    ELSE
-        UPDATE Registers
-        SET sid = new_sid
-        WHERE course_id = input_course_id
-            AND cust_id = input_cust_id;
+            AND sid <> new_sid) > 0) 
+        THEN 
+        -- find out if there is space in new session
+        IF NOT EXISTS (SELECT 1
+                        FROM Rooms R
+                        WHERE R.rid = 
+                            (SELECT S1.rid
+                                FROM (Registers NATURAL JOIN CourseOfferingSessions) S1
+                                WHERE S1.cust_id = input_cust_id
+                                    AND S1.course_id = course_id
+                                    AND S1.sid = new_sid)
+                            AND R.seating_capacity >= (num_registrations + 1)
+        ) THEN RAISE NOTICE 'Seating capacity full for Session with sid: %', new_sid;
+        ELSE
+            UPDATE Registers
+            SET sid = new_sid
+            WHERE course_id = input_course_id
+                AND cust_id = input_cust_id;
+        END IF;
+    ELSIF ((SELECT COUNT(*)
+        FROM Redeems
+        WHERE cust_id = input_cust_id 
+            AND course_id = input_course_id 
+            AND sid <> new_sid) > 0)
+        THEN
+        -- find out if there is space in new session
+        IF NOT EXISTS (SELECT 1
+                        FROM Rooms R
+                        WHERE R.rid = 
+                            (SELECT S1.rid
+                                FROM (Redeems NATURAL JOIN CourseOfferingSessions) S1
+                                WHERE S1.cust_id = input_cust_id
+                                    AND S1.course_id = course_id
+                                    AND S1.sid = new_sid)
+                            AND R.seating_capacity >= (num_registrations + 1)
+        ) THEN RAISE NOTICE 'Seating capacity full for Session with sid: %', new_sid;
+        ELSE
+            UPDATE Redeems
+            SET sid = new_sid
+            WHERE course_id = input_course_id
+                AND cust_id = input_cust_id;
+        END IF;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
