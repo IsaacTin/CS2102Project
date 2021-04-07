@@ -342,7 +342,33 @@ EXECUTE FUNCTION check_customer_active_packages();
 if the number of registrations received is no more than 
 its seating capacity; otherwise, we say that a course offering is fully booked. */
 
+CREATE OR REPLACE FUNCTION check_if_available_or_fully_booked()
+RETURNS TRIGGER AS $$
+DECLARE
+    seatingCapacity INT;
+    totalRegistersAndRedeems INT;
+BEGIN
+    SELECT (
+        (SELECT COUNT(*) FROM Registers WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+        +
+        (SELECT COUNT(*) FROM Redeems WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+    ) INTO totalRegistersAndRedeems;
 
+    SELECT seating_capacity FROM CourseOfferings WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id INTO seatingCapacity;
+    
+    IF (totalRegistersAndRedeems > seatingCapacity) THEN
+        RAISE EXCEPTION 'Course offering is fully booked';
+    ELSE
+        RAISE NOTICE 'Course offering is still available';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+    
+
+CREATE TRIGGER check_if_available_or_fully_booked
+AFTER INSERT OR UPDATE ON Registers
+FOR EACH ROW
+EXECUTE FUNCTION check_if_available_or_fully_booked();
 /*ENDS HERE*/ 
 
 -- 1
