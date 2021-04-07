@@ -716,10 +716,18 @@ BEGIN
                 FROM Course_packages P1
                 ORDER BY (num_packages_sold, price) DESC),
 
+            Nth_package(package_id, num_free_registrations, price, sale_start_date, sale_end_date, 
+            num_packages_sold) AS
+            (SELECT * FROM num_package_table
+            ORDER BY (num_packages_sold, price) DESC 
+            LIMIT 1 OFFSET (N - 1)),
+
             num_package(package_id, num_packages_sold) AS
             (SELECT N1.package_id, N1.num_packages_sold
-                FROM num_package_table
-                LIMIT N)
+                FROM num_package_table N1
+                WHERE N1.num_packages_sold >= 
+                    (SELECT N2.num_packages_sold
+                        FROM Nth_package N2))
         SELECT package_id, num_free_registrations, price, sale_start_date, sale_end_date, num_packages_sold
             FROM num_package NATURAL JOIN num_package_table
             ORDER BY (num_packages_sold, price) DESC;
