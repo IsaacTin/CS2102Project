@@ -1364,7 +1364,7 @@ BEGIN
                                         ), 
                                             0) 
                                 FROM CourseOfferingSessions COS1 
-                                WHERE COS1.eid = r.id);
+                                WHERE COS1.eid = r.eid);
             hourly_rate := (SELECT P2.hourly_rate FROM Part_time_Emp P2 WHERE P2.eid = r.eid);
             salary_amount := num_work_hours * hourly_rate;
             INSERT INTO Pay_slips
@@ -1476,14 +1476,14 @@ BEGIN
             (SELECT DISTINCT P1.package_id, P1.num_free_registrations, P1.price, P1.sale_start_date, P1.sale_end_date, 
                 (SELECT COUNT(*) 
                     FROM Buys B1
-                    WHERE B1.package_id = P1.package_id) AS num_packages_sold
+                    WHERE B1.package_id = P1.package_id)::INT AS num_packages_sold
                 FROM Course_packages P1
-                ORDER BY (P1.package_id DESC),
+                ORDER BY P1.package_id DESC),
 
             nth_package(package_id, num_free_registrations, price, sale_start_date, sale_end_date, 
             num_packages_sold) AS
-            (SELECT * FROM num_package_table
-            ORDER BY (num_packages_sold, price) DESC 
+            (SELECT * FROM num_package_table N0
+            ORDER BY (N0.num_packages_sold, N0.price) DESC 
             LIMIT 1 OFFSET (N - 1)),
 
             num_package_nth(package_id, num_packages_sold) AS
@@ -1492,9 +1492,9 @@ BEGIN
                 WHERE N1.num_packages_sold >= 
                     (SELECT N2.num_packages_sold
                         FROM nth_package N2))
-        SELECT package_id, num_free_registrations, price, sale_start_date, sale_end_date, num_packages_sold
-            FROM num_package_nth NATURAL JOIN num_package_table
-            ORDER BY (num_packages_sold, price) DESC;
+        SELECT S1.package_id, S1.num_free_registrations, S1.price, S1.sale_start_date, S1.sale_end_date, S1.num_packages_sold
+            FROM (num_package_nth NATURAL JOIN num_package_table) AS S1
+            ORDER BY (S1.num_packages_sold, S1.price) DESC;
 END;
 $$ LANGUAGE plpgsql;
 
