@@ -226,13 +226,13 @@ CREATE TABLE Pay_slips (
 -- DONE
 CREATE TABLE Cancels (
     date                            DATE,
-    refund_amt                      INT,
+    refund_amt                      NUMERIC(36,2),
     package_credit                  INT,
     cust_id                         INT,
     sid                             INT,
     course_id                       INT,
     launch_date                     DATE,
-    PRIMARY KEY (date, cust_id, sid),
+    PRIMARY KEY (date, cust_id, sid, launch_date, course_id),
     FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE,
     FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON DELETE CASCADE
 );

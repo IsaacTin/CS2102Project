@@ -50,7 +50,7 @@ DECLARE
     registrationDeadline INT;
 BEGIN
     SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
-    IF EXISTS (
+   IF EXISTS (
         SELECT 1 FROM Registers 
         WHERE NEW.launch_date = launch_date
         AND NEW.course_id = course_id   
@@ -118,7 +118,6 @@ BEFORE INSERT ON Redeems
 FOR EACH ROW
 EXECUTE FUNCTION check_redeems();
 
-
 /*
 3) Seating capacity of course session is equal 
 to seating capacity of room where session conducted, 
@@ -180,6 +179,8 @@ EXECUTE FUNCTION check_rooms();
 /*
 8.	Each instructor specializes in a set of one or more course areas 
 */
+
+/* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
 
 CREATE OR REPLACE FUNCTION check_instructor_specialization()
 RETURNS TRIGGER AS $$
@@ -316,7 +317,7 @@ BEGIN
                                               WHERE B2.cust_id = B1.cust_id
                                               AND B2.package_id = B1.package_id
                                               AND B2.num_remaining_redemptions = 0
-                                              AND CS.session_date <= CURRENT_DATE - INTERVAL '7 days' -- At least 7 days to get refund
+                                              AND CS.session_date - CURRENT_DATE >= 7 -- At least 7 days to get refund
                                              )
                                    );
 
@@ -355,7 +356,7 @@ BEGIN
     ) INTO totalRegistersAndRedeems;
 
     SELECT seating_capacity FROM CourseOfferings WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id INTO seatingCapacity;
-    
+
     IF (totalRegistersAndRedeems > seatingCapacity) THEN
         RAISE EXCEPTION 'Course offering is fully booked';
     ELSE
@@ -363,12 +364,13 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-    
+
 
 CREATE TRIGGER check_if_available_or_fully_booked
 AFTER INSERT OR UPDATE ON Registers
 FOR EACH ROW
 EXECUTE FUNCTION check_if_available_or_fully_booked();
+
 /*ENDS HERE*/ 
 
 -- 1
@@ -476,10 +478,10 @@ DECLARE
     currentActive VARCHAR(16);
 BEGIN 
     SELECT number INTO currentActive FROM Credit_cards WHERE cust_id = input_ID ORDER BY from_date DESC LIMIT 1;
-    UPDATE Credit_cards
-    SET number = input_Number, expiry_date = input_Date, CVV = input_CVV, from_date = CURRENT_DATE WHERE number = currentActive;
-	UPDATE Customers
-	SET number = input_Number WHERE number = currentActive;
+    INSERT INTO Credit_cards VALUES(input_Number, input_CVV, input_Date, CURRENT_DATE, input_ID); /*add trigger to confirm this*/
+    UPDATE Customers
+	SET number = input_Number 
+    WHERE number = currentActive;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -824,7 +826,13 @@ $$ LANGUAGE plpgsql;
 -- for each redeemed session (course name, session date, session start hour). 
 -- The redeemed session information is sorted in ascending order of session date and start hour.
 
-
+CREATE OR REPLACE PROCEDURE get_my_course_package(input_cust_id) AS $$
+DECLARE pkg_id INT;
+b_date DATE;
+BEGIN b_datepkg_id =
+SELECT package_id
+FROM Buys
+WHERE cust_id = input_cust_id;
 
 -- 15. get_available_course_offerings: This routine is used to retrieve all the available 
 -- course offerings that could be registered. The routine returns a table of records with 
@@ -832,7 +840,7 @@ $$ LANGUAGE plpgsql;
 -- start date, end date, registration deadline, course fees, and the number of remaining seats. 
 -- The output is sorted in ascending order of registration deadline and course title.
 
-CREATE OR REPLACE FUNCTION get_available_course_offerings() RETURNS TABLE (
+CREATE OR REPLACE FUNCTION get_available_course_packages() RETURNS TABLE (
         title VARCHAR,
         course_area_name VARCHAR,
         start_date DATE,
@@ -1005,7 +1013,7 @@ $$ LANGUAGE plpgsql;
         
 -- TODO: trigger to prevent customer from registering and redeeming same session.
 -- 19
-CREATE OR REPLACE PROCEDURE update_course_session(input_cust_id INT, input_course_id INT, new_sid INT)
+CREATE OR REPLACE PROCEDURE update_course_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, new_sid INT)
 AS $$
 DECLARE
     count INT;
@@ -1015,12 +1023,14 @@ BEGIN
     SELECT COUNT(*) INTO num_registrations
         FROM Registers
         WHERE sid = new_sid
-        AND course_id = input_course_id;
+        AND course_id = input_course_id
+        AND launch_date = input_launch_date;
 
     IF ((SELECT COUNT(*)
         FROM Registers
         WHERE cust_id = input_cust_id 
             AND course_id = input_course_id 
+            AND launch_date = input_launch_date
             AND sid <> new_sid) > 0) 
         THEN 
         -- find out if there is space in new session
@@ -1028,22 +1038,25 @@ BEGIN
                         FROM Rooms R
                         WHERE R.rid = 
                             (SELECT S1.rid
-                                FROM (Registers NATURAL JOIN CourseOfferingSessions) S1
+                                FROM (Registers NATURAL JOIN CourseOfferingSessions) AS S1
                                 WHERE S1.cust_id = input_cust_id
                                     AND S1.course_id = course_id
+                                    AND S1.launch_date = input_launch_date
                                     AND S1.sid = new_sid)
                             AND R.seating_capacity >= (num_registrations + 1)
-        ) THEN RAISE NOTICE 'Seating capacity full for Session with sid: %', new_sid;
+        ) THEN RAISE EXCEPTION 'Seating capacity full for Session with sid: %', new_sid;
         ELSE
             UPDATE Registers
             SET sid = new_sid
             WHERE course_id = input_course_id
-                AND cust_id = input_cust_id;
+                AND cust_id = input_cust_id
+                AND launch_date = input_launch_date;
         END IF;
     ELSIF ((SELECT COUNT(*)
         FROM Redeems
         WHERE cust_id = input_cust_id 
-            AND course_id = input_course_id 
+            AND course_id = input_course_id
+            AND launch_date = input_launch_date
             AND sid <> new_sid) > 0)
         THEN
         -- find out if there is space in new session
@@ -1051,54 +1064,142 @@ BEGIN
                         FROM Rooms R
                         WHERE R.rid = 
                             (SELECT S1.rid
-                                FROM (Redeems NATURAL JOIN CourseOfferingSessions) S1
+                                FROM (Redeems NATURAL JOIN CourseOfferingSessions) AS S1
                                 WHERE S1.cust_id = input_cust_id
                                     AND S1.course_id = course_id
+                                    AND S1.launch_date = input_launch_date
                                     AND S1.sid = new_sid)
                             AND R.seating_capacity >= (num_registrations + 1)
-        ) THEN RAISE NOTICE 'Seating capacity full for Session with sid: %', new_sid;
+        ) THEN RAISE EXCEPTION 'Seating capacity full for Session with sid: %', new_sid;
         ELSE
             UPDATE Redeems
             SET sid = new_sid
             WHERE course_id = input_course_id
-                AND cust_id = input_cust_id;
+                AND cust_id = input_cust_id
+                AND launch_date = input_launch_date;
         END IF;
+    ELSE
+        RAISE EXCEPTION 'Could not find session from course id: %, launch date: % and cust_id: %', input_course_id, input_launch_date, input_cust_id;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 -- 20
-CREATE OR REPLACE PROCEDURE cancel_registration(input_cust_id INT, input_course_id INT)
+CREATE OR REPLACE PROCEDURE cancel_registration(input_cust_id INT, input_course_id INT, input_launch_date DATE)
 AS $$
 DECLARE
     curr_session_date DATE;
     session_price NUMERIC(36,2);
     session_id INT;
-    session_launch_date DATE;
+    active_package_id INT;
+    partially_active_package_id INT;
 BEGIN 
-    IF NOT EXISTS (
-        SELECT 1 
+    IF ((
+        SELECT COUNT(*) 
         FROM Registers
-        WHERE cust_id = input_cust_id AND course_id = input_course_id
-        ) THEN RETURN;
-    END IF;
-
-    SELECT P1.session_date, P1.fees, P1.sid, P1.launch_date INTO curr_session_date, session_price, session_id, session_launch_date
-    FROM ((SELECT R1.sid
+        WHERE cust_id = input_cust_id AND course_id = input_course_id AND launch_date = input_launch_date
+        ) > 0) 
+        THEN 
+        SELECT P1.session_date, P1.fees, P1.sid INTO curr_session_date, session_price, session_id
+        FROM ((SELECT R1.sid
             FROM Registers R1
-            WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id) AS S1
+            WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id AND R1.launch_date = input_launch_date) AS S1
             NATURAL JOIN
             CourseOfferingSessions) AS P1;
     
-    -- We treat fees in CourseOfferings as fees per session not fees per offering.
-    -- Only insert into cancels if refunded.
-    IF (curr_session_date - CURRENT_DATE > 7) THEN
-        INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
-        VALUES (CURRENT_DATE, 0.9 * session_price, NULL, input_cust_id, session_id, input_course_id, session_launch_date);
+        -- We treat fees in CourseOfferings as fees per session not fees per offering.
+        -- scenario: customer cancelled, registered and cancelled same session in same day.
+        IF EXISTS(
+            SELECT 1
+            FROM Cancels
+            WHERE date = CURRENT_DATE
+                AND cust_id = input_cust_id
+                AND sid = session_id
+                AND course_id = input_course_id
+                AND launch_date = input_launch_date
+        ) THEN RAISE EXCEPTION 'Cooldown: You can only cancel this registration after 1 Day';
+        END IF;
+        IF (curr_session_date - CURRENT_DATE > 7) THEN
+            INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
+            VALUES (CURRENT_DATE, 0.9 * session_price, NULL, input_cust_id, session_id, input_course_id, input_launch_date);
+        ELSE
+            INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
+            VALUES (CURRENT_DATE, 0, NULL, input_cust_id, session_id, input_course_id, input_launch_date); -- no refunded
+        END IF;
+        DELETE FROM Registers
+        WHERE course_id = input_course_id
+            AND cust_id = input_cust_id
+            AND launch_date = input_launch_date;
+    ELSIF ((
+        SELECT COUNT(*) 
+        FROM Redeems
+        WHERE cust_id = input_cust_id AND course_id = input_course_id AND launch_date = input_launch_date
+        ) > 0)
+        THEN
+        SELECT P1.session_date, P1.sid INTO curr_session_date, session_id
+        FROM ((SELECT R1.sid
+            FROM Redeems R1
+            WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id AND R1.launch_date = input_launch_date) AS S1
+            NATURAL JOIN
+            CourseOfferingSessions) AS P1;
+        active_package_id := (SELECT package_id
+                              FROM Buys B JOIN Redeems R ON (B.buys_date = R.buys_date
+                                                             AND B.cust_id = R.cust_id
+                                                             AND B.number = R.number
+                                                             AND B.package_id = R.package_id)
+                              WHERE input_cust_id = B.cust_id
+                              AND num_remaining_redemptions >= 1 -- At least one unused session in the package
+                              );
+        partially_active_package_id := (SELECT R.package_id
+                                          FROM (Buys B JOIN Redeems R ON (B.buys_date = R.buys_date
+                                                                           AND B.cust_id = R.cust_id
+                                                                           AND B.number = R.number
+                                                                           AND B.package_id = R.package_id))
+                                          JOIN CourseOfferingSessions CS ON (R.sid = CS.sid 
+                                                                            AND R.course_id = CS.course_id 
+                                                                            AND R.launch_date = CS.launch_date)
+                                          WHERE B.cust_id = input_cust_id
+                                          AND B.num_remaining_redemptions = 0 -- Partially active and inactive
+                                          AND CS.session_date - CURRENT_DATE >= 7 -- At least 7 days to get refund, all partially active
+                                          );
+        -- scenario: customer cancelled, registered and cancelled same session in same day.
+        IF EXISTS(
+            SELECT 1
+            FROM Cancels
+            WHERE date = CURRENT_DATE
+                AND cust_id = input_cust_id
+                AND sid = session_id
+                AND course_id = input_course_id
+                AND launch_date = input_launch_date
+        ) THEN RAISE EXCEPTION 'Cooldown: You can only cancel this registration after 1 Day';
+        END IF;
+        IF (curr_session_date - CURRENT_DATE >= 7) THEN
+            INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
+            VALUES (CURRENT_DATE, NULL, 1, input_cust_id, session_id, input_course_id, input_launch_date);
+
+            IF (active_package_id IS NOT NULL) THEN
+                UPDATE Buys
+                SET num_remaining_redemptions = num_remaining_redemptions + 1
+                WHERE cust_id = input_cust_id
+                    AND package_id = active_package_id; --need to check for partially active
+            ELSIF (partially_active_package_id IS NOT NULL) THEN
+                UPDATE Buys
+                SET num_remaining_redemptions = num_remaining_redemptions + 1
+                WHERE cust_id = input_cust_id
+                    AND package_id = partially_active_package_id; --need to check for partially active
+            END IF; 
+        ELSE
+            INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
+            VALUES (CURRENT_DATE, NULL, 0, input_cust_id, session_id, input_course_id, input_launch_date); -- not refunded
+        END IF;
+        DELETE FROM Redeems
+        WHERE course_id = input_course_id
+            AND cust_id = input_cust_id;
+            AND sid = session_id
+            AND launch_date = input_launch_date;
+    ELSE
+        RAISE EXCEPTION 'Could not find session from course id: %, launch date: % and cust_id: %', input_course_id, input_launch_date, input_cust_id;
     END IF;
-    DELETE FROM Registers
-    WHERE course_id = input_course_id
-        AND cust_id = input_cust_id;
 END;
 $$ LANGUAGE plpgsql;
 
