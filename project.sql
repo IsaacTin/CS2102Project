@@ -3,7 +3,7 @@ CS2102 relational database schema for ER data model
 **/
     
 DROP TABLE IF EXISTS Course_packages, Credit_cards, Customers, Cancels, Registers, Redeems,
-Buys, Consists, CourseOfferingSessions, CourseOfferings, Courses, Rooms, Instructors,
+Buys, CourseOfferingSessions, CourseOfferings, Courses, Rooms, Instructors,
 Administrators, Managers, CourseAreaManaged, Full_time_instructors, Part_time_instructors,
 Full_time_Emp, Part_time_Emp, Employees, Pay_slips, Specializes CASCADE;
 
@@ -130,7 +130,6 @@ CREATE TABLE Buys (
     package_id                      INT REFERENCES Course_packages(package_id),
     PRIMARY KEY(buys_date, cust_id, number, package_id)
 );
-
 
 -- DONE
 CREATE TABLE Administrators (
