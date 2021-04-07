@@ -343,7 +343,7 @@ EXECUTE FUNCTION check_customer_active_packages();
 if the number of registrations received is no more than 
 its seating capacity; otherwise, we say that a course offering is fully booked. */
 
-CREATE OR REPLACE FUNCTION check_if_available_or_fully_booked()
+CREATE OR REPLACE FUNCTION check_if_available_or_fully_booked_Registers()
 RETURNS TRIGGER AS $$
 DECLARE
     seatingCapacity INT;
@@ -365,11 +365,41 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
-CREATE TRIGGER check_if_available_or_fully_booked
+DROP TRIGGER IF EXISTS check_if_available_or_fully_booked_Registers ON Registers;
+CREATE TRIGGER check_if_available_or_fully_booked_Registers
 AFTER INSERT OR UPDATE ON Registers
 FOR EACH ROW
-EXECUTE FUNCTION check_if_available_or_fully_booked();
+EXECUTE FUNCTION check_if_available_or_fully_booked_Registers();
+
+
+
+CREATE OR REPLACE FUNCTION check_if_available_or_fully_booked_Redeems()
+RETURNS TRIGGER AS $$
+DECLARE
+    seatingCapacity INT;
+    totalRegistersAndRedeems INT;
+BEGIN
+    SELECT (
+        (SELECT COUNT(*) FROM Registers WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+        +
+        (SELECT COUNT(*) FROM Redeems WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id) 
+    ) INTO totalRegistersAndRedeems;
+
+    SELECT seating_capacity FROM CourseOfferings WHERE NEW.launch_date = launch_date AND NEW.course_id = course_id INTO seatingCapacity;
+
+    IF (totalRegistersAndRedeems > seatingCapacity) THEN
+        RAISE EXCEPTION 'Course offering is fully booked';
+    ELSE
+        RAISE NOTICE 'Course offering is still available';
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_available_or_fully_booked_Redeems ON Redeems;
+CREATE TRIGGER check_if_available_or_fully_booked_Redeems
+AFTER INSERT OR UPDATE ON Redeems
+FOR EACH ROW
+EXECUTE FUNCTION check_if_available_or_fully_booked_Redeems();
 
 /*ENDS HERE*/ 
 
@@ -393,6 +423,8 @@ BEGIN
             LOOP 
                 IF NOT EXISTS (SELECT 1 FROM CourseAreaManaged WHERE area = course_area_name) THEN
                     INSERT INTO CourseAreaManaged VALUES(area, employeeId);
+                ELSE 
+                    RAISE EXCEPTION 'Each course area can only be managed by one manager';
                 END IF;
             END LOOP;
         ELSIF (input_Category = 'instructor') THEN
@@ -401,7 +433,7 @@ BEGIN
             LOOP
                 INSERT INTO Specializes VALUES(employeeId, area);
             END LOOP;
-            IF (input_Salary < 1000) THEN /*i not sure if can compare int to numeric, and also i assume minimum monthly salary is above 1000*/ 
+            IF (input_Salary < 100) THEN /*i not sure if can compare int to numeric, and also i assume minimum monthly salary is above 1000*/ 
                 INSERT INTO Part_time_Emp VALUES (employeeId, input_Salary);
                 INSERT INTO Part_time_instructors VALUES(employeeId);
             ELSE
@@ -539,7 +571,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
+/*TODO correct total hours worked*/
 -- 7
 CREATE OR REPLACE FUNCTION get_available_instructors(input_Cid INT, input_StartDate DATE, input_EndDate DATE)
 RETURNS TABLE(eid INT, name VARCHAR, hours int, day DATE, availableHours TIME[]) AS $$
@@ -552,7 +584,6 @@ DECLARE
     courseArea VARCHAR;
     currTime TIME;
 BEGIN
-    hours := 0;
     SELECT course_area_name INTO courseArea FROM Courses WHERE course_id = input_Cid;
     OPEN curs1;
     LOOP
@@ -560,8 +591,9 @@ BEGIN
         EXIT WHEN NOT FOUND;
         CONTINUE WHEN r.course_area_name <> courseArea;
         currDate := input_StartDate;
+        hours := 0;
         IF EXISTS (SELECT 1 FROM CourseOfferingSessions C WHERE r.eid = C.eid) THEN
-            SELECT SUM((SELECT EXTRACT (HOUR FROM session_date + end_time)) - (SELECT EXTRACT (HOUR FROM session_date + start_time))) FROM CourseOfferingSessions INTO hours;
+            SELECT SUM((SELECT EXTRACT (HOUR FROM session_date + end_time)) - (SELECT EXTRACT (HOUR FROM session_date + start_time))) FROM CourseOfferingSessions C WHERE r.eid = C.eid INTO hours;
         END IF;
         LOOP 
             EXIT WHEN currDate > input_EndDate;
@@ -826,13 +858,6 @@ $$ LANGUAGE plpgsql;
 -- for each redeemed session (course name, session date, session start hour). 
 -- The redeemed session information is sorted in ascending order of session date and start hour.
 
-CREATE OR REPLACE PROCEDURE get_my_course_package(input_cust_id) AS $$
-DECLARE pkg_id INT;
-b_date DATE;
-BEGIN b_datepkg_id =
-SELECT package_id
-FROM Buys
-WHERE cust_id = input_cust_id;
 
 -- 15. get_available_course_offerings: This routine is used to retrieve all the available 
 -- course offerings that could be registered. The routine returns a table of records with 
@@ -1194,7 +1219,7 @@ BEGIN
         END IF;
         DELETE FROM Redeems
         WHERE course_id = input_course_id
-            AND cust_id = input_cust_id;
+            AND cust_id = input_cust_id
             AND sid = session_id
             AND launch_date = input_launch_date;
     ELSE
@@ -1307,11 +1332,11 @@ CREATE OR REPLACE FUNCTION pay_salary()
 RETURNS TABLE(eid INT, name VARCHAR, status VARCHAR(10), num_work_days INT,
 num_work_hours INT, hourly_rate numeric(36,2), monthly_salary numeric(36,2), salary_amount numeric(36,2)) AS $$
 DECLARE
-  num_days_in_month INT;
-  curs CURSOR FOR (SELECT * FROM Employees ORDER BY eid ASC);
-  r RECORD;
-  first_work_day_of_month INT;
-  last_work_day_of_month INT;
+    num_days_in_month INT;
+    curs CURSOR FOR (SELECT * FROM Employees ORDER BY eid ASC);
+    r RECORD;
+    first_work_day_of_month INT;
+    last_work_day_of_month INT;
 BEGIN
     num_days_in_month := (SELECT DATE_PART('days', 
                             DATE_TRUNC('month', CURRENT_DATE) 
@@ -1332,9 +1357,14 @@ BEGIN
             status := 'part-time';
             num_work_days := NULL;
             monthly_salary := NULL;
-            num_work_hours := (SELECT COALESCE(SUM(COS1.end_time - COS1.start_time), 0) 
+            num_work_hours := (SELECT COALESCE(
+                                        SUM(
+                                        (SELECT EXTRACT(HOUR FROM (COS1.session_date + COS1.end_time))) - 
+                                        (SELECT EXTRACT(HOUR FROM (COS1.session_date + COS1.start_time)))
+                                        ), 
+                                            0) 
                                 FROM CourseOfferingSessions COS1 
-                                WHERE COS1.eid = r.eid);
+                                WHERE COS1.eid = r.id);
             hourly_rate := (SELECT P2.hourly_rate FROM Part_time_Emp P2 WHERE P2.eid = r.eid);
             salary_amount := num_work_hours * hourly_rate;
             INSERT INTO Pay_slips
@@ -1448,7 +1478,7 @@ BEGIN
                     FROM Buys B1
                     WHERE B1.package_id = P1.package_id) AS num_packages_sold
                 FROM Course_packages P1
-                ORDER BY (num_packages_sold, price) DESC),
+                ORDER BY (P1.package_id DESC),
 
             nth_package(package_id, num_free_registrations, price, sale_start_date, sale_end_date, 
             num_packages_sold) AS
@@ -1576,10 +1606,12 @@ BEGIN
             WHERE (SELECT EXTRACT(MONTH FROM B1.buys_date)) 
                 = (SELECT EXTRACT(MONTH FROM curr_month_date));
         SELECT SUM(O1.fees) INTO total_fees_paid_credit_card
-            FROM Registers R1, CourseOfferingSessions S1
+            FROM Registers R1, CourseOfferingSessions S1, CourseOfferings O1
             WHERE (SELECT EXTRACT(MONTH FROM R1.registers_date)) 
                 = (SELECT EXTRACT(MONTH FROM curr_month_date))
-                AND R1.sid = S1.sid;
+                AND R1.sid = S1.sid
+                AND S1.launch_date = O1.launch_date
+                AND S1.course_id = O1.course_id;
         SELECT SUM(C1.refund_amt) INTO total_refunds
             FROM Cancels C1
             WHERE C1.refund_amt IS NOT NULL
@@ -1636,7 +1668,7 @@ BEGIN
         EXIT WHEN NOT FOUND;
 
         /*Assign attributes*/
-        manager_name  := managerCursor.name;
+        manager_name  := managerRecord.name;
         num_course_areas_managed := (SELECT COUNT(*)
                                      FROM CourseAreaManaged
                                      WHERE eid = managerRecord.eid);
@@ -1644,7 +1676,7 @@ BEGIN
                                            FROM (Courses C JOIN CourseOfferings CO ON (C.course_id = CO.course_id))
                                            JOIN CourseAreaManaged CAM ON (C.course_area_name = CAM.course_area_name)
                                            WHERE date_part('year', CO.end_date) = date_part('year', CURRENT_DATE)
-                                           AND CAM.eid = managerCursor.eid
+                                           AND CAM.eid = managerRecord.eid
                                            );
 
         /*Assign first in case detail not found in inner loop*/
@@ -1659,28 +1691,28 @@ BEGIN
             EXIT WHEN NOT FOUND;
 
             /*We don't care when employee is different*/
-            IF managerCursor.eid <> courseDetailCursor.eid THEN
+            IF managerRecord.eid <> courseDetailRecord.eid THEN
                 CONTINUE;
             END IF;
 
             registrations := (SELECT COUNT(*) 
                               FROM Registers
-                              WHERE course_id = courseDetailCursor.course_id
-                              AND launch_date = courseDetailCursor.launch_date);
+                              WHERE course_id = courseDetailRecord.course_id
+                              AND launch_date = courseDetailRecord.launch_date);
 
             /*Account for total registration fees paid via credit card payment*/
-            registrationFee := registrations * courseDetailCursor.fees;
+            registrationFee := registrations * courseDetailRecord.fees;
 
             cancelledRegistrations := (SELECT COUNT(*)
                                        FROM Cancels
-                                       WHERE course_id = courseDetailCursor.launch_date
-                                       AND launch_date = courseDetailCursor.launch_date
+                                       WHERE course_id = courseDetailRecord.course_id
+                                       AND launch_date = courseDetailRecord.launch_date
                                        AND refund_amt IS NOT NULL
                                        );
             temporarySum := (SELECT SUM(refund_amt)
                              FROM Cancels
-                             WHERE course_id = courseDetailCursor.launch_date
-                             AND launch_date = courseDetailCursor.launch_date
+                             WHERE course_id = courseDetailRecord.course_id
+                             AND launch_date = courseDetailRecord.launch_date
                              AND refund_amt IS NOT NULL
                              );
             IF temporarySum IS NULL THEN
@@ -1688,7 +1720,7 @@ BEGIN
             END IF;
 
             /*Account for refunds*/
-            registrationFee := registrationFee - temporarySum + (cancelledRegistrations * courseDetailCursor.fees);
+            registrationFee := registrationFee - temporarySum + (cancelledRegistrations * courseDetailRecord.fees);
 
             temporarySum := (SELECT SUM(CP.price / CP.num_free_registrations)
                              FROM (Redeems R JOIN Buys B ON (R.buys_date = B.buys_date
@@ -1704,13 +1736,13 @@ BEGIN
             /*Account for individual registrations*/
             registrationFee := registrationFee + temporarySum;
 
-            total_net_registration_fee := total_net_registration_fee + registration_fee;
+            total_net_registration_fee := total_net_registration_fee + registrationFee;
             IF registrationFee > highestRegistrationFee THEN
                 highestRegistrationFee := registrationFee;
-                highestRegistrationCourse := ARRAY[courseDetailCursor.title];
+                highestRegistrationCourse := ARRAY[courseDetailRecord.title];
 
             ELSIF registrationFee = highestRegistrationFee THEN
-                highestRegistrationCourse := array_append(highestRegistrationCourse, courseDetailCursor.title);
+                highestRegistrationCourse := array_append(highestRegistrationCourse, courseDetailRecord.title);
 
             END IF;
 

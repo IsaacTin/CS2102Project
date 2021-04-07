@@ -92,7 +92,7 @@ CREATE TABLE Full_time_instructors (
 -- DONE
 CREATE TABLE Courses (
     course_id                       INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    course_area_name                VARCHAR UNIQUE NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
+    course_area_name                VARCHAR NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
     title                           VARCHAR NOT NULL,
     description                     VARCHAR NOT NULL,
     duration                        INT NOT NULL, /**duration is in number of hours**/
