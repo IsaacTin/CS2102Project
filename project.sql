@@ -5,7 +5,7 @@ CS2102 relational database schema for ER data model
 DROP TABLE IF EXISTS Course_packages, Credit_cards, Customers, Cancels, Registers, Redeems,
 Buys, Consists, CourseOfferingSessions, CourseOfferings, Courses, Rooms, Instructors,
 Administrators, Managers, CourseAreaManaged, Full_time_instructors, Part_time_instructors,
-Full_time_Emp, Part_time_Emp, Employees, Pay_slips;
+Full_time_Emp, Part_time_Emp, Employees, Pay_slips, Specializes CASCADE;
 
 -- DONE
 CREATE TABLE Course_packages (
@@ -66,9 +66,13 @@ CREATE TABLE CourseAreaManaged (
 );
 
 CREATE TABLE Instructors (
-    eid                             INT UNIQUE REFERENCES Employees(eid) ON DELETE CASCADE,
-    course_area_name                VARCHAR REFERENCES CourseAreaManaged(course_area_name),
-    PRIMARY KEY (eid, course_area_name) 
+    eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE /*I removed Unique as instructors can specialze in more than one area*/
+);
+
+CREATE TABLE Specializes (
+    eid                             INT REFERENCES Employees(eid) ON DELETE CASCADE,
+    course_area_name                VARCHAR REFERENCES CourseAreaManaged(course_area_name) ON DELETE CASCADE,
+    PRIMARY KEY (eid, course_area_name)
 );
 
 -- DONE
@@ -178,8 +182,8 @@ CREATE TABLE CourseOfferingSessions (
         END
         )
     ),
-    CONSTRAINT sid_more_than_1 CHECK (sid >= 1)
-
+    CONSTRAINT sid_more_than_1 CHECK (sid >= 1),
+    CONSTRAINT session_date_after_launch_date CHECK (session_date >= launch_date)
 );
 
 -- DONE
