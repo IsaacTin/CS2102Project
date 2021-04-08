@@ -225,8 +225,41 @@ CALL add_course_offering(15, 120, '2021-01-15', '2021-04-15', 40, 5, array['2021
 
 -- TODO: Registers using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
+DELETE FROM Registers;
+call register_session(1,1,'2021-01-01', 1,'credit card');			
+call register_session(2,2,'2021-01-02', 1,'credit card');											 
+call register_session(3,3,'2021-01-03', 1,'credit card');											 
+call register_session(4,4,'2021-01-04', 1,'credit card');											 
+call register_session(5,5,'2021-01-05', 1,'credit card');			
+call register_session(6,6,'2021-01-06', 1,'credit card');
+call register_session(7,7,'2021-01-07', 1,'credit card');
+call register_session(8,8,'2021-01-08', 2,'credit card');
+call register_session(9,9,'2021-01-09', 2,'credit card');
+call register_session(10,10,'2021-01-10', 2,'credit card');
+call register_session(11,11,'2021-01-11', 2,'credit card');	
+call register_session(12,12,'2021-01-12', 2,'credit card');
+call register_session(13,13,'2021-01-13', 2,'credit card');
+call register_session(14,14,'2021-01-14', 2,'credit card');
+call register_session(15,15,'2021-01-15', 2,'credit card');							 
+
 -- TODO: Redeems using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
+DELETE FROM Redeems;
+call register_session(16,3,'2021-01-01',1,'redemption');
+call register_session(17,3,'2021-01-02',1,'redemption');
+call register_session(18,3,'2021-01-03',1,'redemption');
+call register_session(19,3,'2021-01-04',1,'redemption');
+call register_session(20,3,'2021-01-05',1,'redemption');
+call register_session(21,3,'2021-01-06',1,'redemption');
+call register_session(22,3,'2021-01-07',1,'redemption');
+call register_session(23,3,'2021-01-08',1,'redemption');
+call register_session(24,3,'2021-01-09',2,'redemption');
+call register_session(25,3,'2021-01-10',2,'redemption');
+call register_session(26,3,'2021-01-11',2,'redemption');
+call register_session(27,3,'2021-01-12',2,'redemption');
+call register_session(28,3,'2021-01-13',2,'redemption');
+call register_session(29,3,'2021-01-14',2,'redemption');
+call register_session(30,3,'2021-01-15',2,'redemption');
 SELECT pay_salary();
 
 -- TODO: Cancels using cancel_registration function
