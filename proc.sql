@@ -1401,7 +1401,9 @@ BEGIN
         RAISE NOTICE 'Trying add session into course offering sessions';
 		/*Check session constraints*/
 		INSERT INTO CourseOfferingSessions
-		VALUES (number, input_sessionStart, endHour, input_roomId, input_instructorId, input_courseId, input_sessionDate, input_launchDate);
+		VALUES (input_sessionId, input_sessionStart, endHour, 
+                input_roomId, input_instructorId, input_courseId, 
+                input_sessionDate, input_launchDate);
     ELSE 
         RAISE EXCEPTION 'Either course offering does not exist or registration deadline 
         has passed the current date, can not add session';
@@ -1487,11 +1489,11 @@ DECLARE
     customerRecord RECORD;
     courseRecord RECORD;
 BEGIN
-    FOR customerRecord IN (SELECT R1.cust_id, R1.name
-        FROM Registers R1
+    FOR customerRecord IN (SELECT R1.cust_id, C1.name
+        FROM Registers R1 JOIN Customers C1 ON (C1.cust_id = R1.cust_id)
         EXCEPT
-        SELECT R2.cust_id
-        FROM Registers R2
+        SELECT R2.cust_id, C2.name
+        FROM Registers R2 JOIN Customers C2 ON (C2.cust_id = R2.cust_id)
         WHERE registers_date > (CURRENT_DATE - INTERVAL '6 months') -- Active customers
 		ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
     )
