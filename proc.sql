@@ -159,7 +159,7 @@ FOR EACH ROW
 EXECUTE FUNCTION update_course_offering_seating_capacity();
 
 /*
-7.	Each room can be used to conduct at most one course session at any time.
+7.  Each room can be used to conduct at most one course session at any time.
 */
 
 CREATE OR REPLACE FUNCTION check_rooms()
@@ -187,7 +187,7 @@ EXECUTE FUNCTION check_rooms();
 
 
 /*
-8.	Each instructor specializes in a set of one or more course areas 
+8.  Each instructor specializes in a set of one or more course areas 
 */
 
 /* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
@@ -213,7 +213,7 @@ EXECUTE FUNCTION check_instructor_specialization();
 
 
 /*
-9.	instructor who is assigned to teach a course session must be specialized in that course area
+9.  instructor who is assigned to teach a course session must be specialized in that course area
 */
 
 
@@ -239,7 +239,7 @@ FOR EACH ROW
 EXECUTE FUNCTION check_if_specialized();
 
 /*
-10.	Each instructor can teach at most one course session at any hour AND Each instructor must not be assigned to teach two consecutive course sessions
+10. Each instructor can teach at most one course session at any hour AND Each instructor must not be assigned to teach two consecutive course sessions
 */
 
 
@@ -268,7 +268,7 @@ EXECUTE FUNCTION check_if_same_hour();
 
 
 /*
-12.	Each part-time instructor must not teach more than 30 hours for each month.
+12. Each part-time instructor must not teach more than 30 hours for each month.
 */
 
 
@@ -534,7 +534,7 @@ BEGIN
         SELECT eid INTO employeeId FROM Employees WHERE input_Name = name;
 
         IF (input_Category = 'manager') THEN
-		    INSERT INTO Full_time_Emp VALUES (employeeId, input_Salary);
+            INSERT INTO Full_time_Emp VALUES (employeeId, input_Salary);
             INSERT INTO Managers VALUES(employeeId);
             FOREACH area IN ARRAY input_Areas
             LOOP 
@@ -618,7 +618,7 @@ BEGIN
     SELECT number INTO currentActive FROM Customers WHERE cust_id = input_ID;
     INSERT INTO Credit_cards VALUES(input_Number, input_CVV, input_Date, CURRENT_DATE, input_ID); /*add trigger to confirm this*/
     UPDATE Customers
-	SET number = input_Number 
+    SET number = input_Number 
     WHERE number = currentActive;
 END;
 $$ LANGUAGE plpgsql;
@@ -670,7 +670,7 @@ BEGIN
             RETURN NEXT;
         ELSE
             CONTINUE;
-		END IF;
+        END IF;
     END LOOP;
     CLOSE curs;
 END;
@@ -722,14 +722,14 @@ BEGIN
                     SELECT array_append(availableHours, currTime) INTO availableHours;
                 ELSE
                     CONTINUE;
-				END IF;
+                END IF;
             END LOOP;
             IF (array_length(availableHours, 1) > 0) THEN
                 RETURN NEXT;
                 SELECT currDate + INTERVAL '1 day' INTO currDate;
             ELSE
                 SELECT currDate + INTERVAL '1 day' INTO currDate;
-			END IF;
+            END IF;
         END LOOP;
     END LOOP;
     CLOSE curs1;
@@ -767,7 +767,7 @@ BEGIN
             RETURN NEXT;
         ELSE
             CONTINUE;
-		END IF;
+        END IF;
     END LOOP;
     CLOSE curs;
 END;
@@ -1068,61 +1068,61 @@ $$ LANGUAGE plpgsql;
 -- this routine will process the registration with the necessary updates (e.g., payment/redemption).
 
 CREATE OR REPLACE PROCEDURE register_session(input_cust_id INT, input_course_id INT, 
-											 input_launch_date DATE, input_session_number INT,
-											 input_payment_method VARCHAR) 
+                                             input_launch_date DATE, input_session_number INT,
+                                             input_payment_method VARCHAR) 
 AS $$
 DECLARE
-	var_buys_date DATE;
-	var_cc_number VARCHAR(16);
-	var_package_id INT;
-	var_sid INT;
-	var_launch_date DATE;
-	curr_num_registered INT;
-	curr_num_redeemed INT;
-	total_seats INT;
+    var_buys_date DATE;
+    var_cc_number VARCHAR(16);
+    var_package_id INT;
+    var_sid INT;
+    var_launch_date DATE;
+    curr_num_registered INT;
+    curr_num_redeemed INT;
+    total_seats INT;
 BEGIN
 -- check if session is full
 SELECT COUNT(*) INTO curr_num_registered FROM Registers 
-	WHERE course_id = input_course_id 
-	AND sid = input_session_number 
-	AND launch_date = input_launch_date;
+    WHERE course_id = input_course_id 
+    AND sid = input_session_number 
+    AND launch_date = input_launch_date;
 SELECT COUNT(*) INTO curr_num_redeemed FROM Redeems 
-	WHERE course_id = input_course_id 
-	AND sid = input_session_number 
-	AND launch_date = input_launch_date;
+    WHERE course_id = input_course_id 
+    AND sid = input_session_number 
+    AND launch_date = input_launch_date;
 SELECT rid INTO total_seats FROM CourseOfferingSessions 
-	WHERE sid = input_session_number
-	AND launch_date = input_launch_date
-	AND course_id = input_course_id;
+    WHERE sid = input_session_number
+    AND launch_date = input_launch_date
+    AND course_id = input_course_id;
 IF (total_seats - curr_num_registered - curr_num_redeemed <= 0) THEN -- shouldn't be less than, but jic
-	RAISE EXCEPTION 'session is full, cannot register/redeem';
+    RAISE EXCEPTION 'session is full, cannot register/redeem';
 END IF;
 
 IF input_payment_method = 'credit card' THEN
-	INSERT INTO Registers (registers_date, cust_id, number, sid, course_id, launch_date)
-	VALUES (CURRENT_DATE, input_cust_id, (SELECT number FROM Customers WHERE cust_id = input_cust_id), 
-			input_session_number, input_course_id, input_launch_date);
+    INSERT INTO Registers (registers_date, cust_id, number, sid, course_id, launch_date)
+    VALUES (CURRENT_DATE, input_cust_id, (SELECT number FROM Customers WHERE cust_id = input_cust_id), 
+            input_session_number, input_course_id, input_launch_date);
 ELSIF input_payment_method = 'redemption' THEN
-	-- update Redeems
-	SELECT buys_date, number, package_id INTO var_buys_date, var_cc_number, var_package_id
-		FROM Buys WHERE cust_id = input_cust_id;
-	SELECT sid, launch_date INTO var_sid, var_launch_date 
-		FROM CourseOfferingSessions WHERE course_id = input_course_id;
-	INSERT INTO Redeems (redeems_date, buys_date, cust_id, number, package_id, sid, course_id, launch_date)
-	VALUES (CURRENT_DATE, var_buys_date, input_cust_id, var_cc_number, 
-			var_package_id, var_sid, input_course_id, var_launch_date);
+    -- update Redeems
+    SELECT buys_date, number, package_id INTO var_buys_date, var_cc_number, var_package_id
+        FROM Buys WHERE cust_id = input_cust_id;
+    SELECT sid, launch_date INTO var_sid, var_launch_date 
+        FROM CourseOfferingSessions WHERE course_id = input_course_id;
+    INSERT INTO Redeems (redeems_date, buys_date, cust_id, number, package_id, sid, course_id, launch_date)
+    VALUES (CURRENT_DATE, var_buys_date, input_cust_id, var_cc_number, 
+            var_package_id, var_sid, input_course_id, var_launch_date);
 
     -- update Buys, minus one from redemption
-	-- There should only be 1 entry as each customer can have at most one active or partially active package.
-	IF (SELECT COUNT(*) FROM Buys WHERE cust_id = input_cust_id AND num_remaining_redemptions > 0) = 1 THEN
-		UPDATE Buys 
-		SET num_remaining_redemptions = num_remaining_redemptions - 1
-		WHERE cust_id = input_cust_id;
-	ELSE
-		RAISE EXCEPTION 'No course package found for customer';
-	END IF;
+    -- There should only be 1 entry as each customer can have at most one active or partially active package.
+    IF (SELECT COUNT(*) FROM Buys WHERE cust_id = input_cust_id AND num_remaining_redemptions > 0) = 1 THEN
+        UPDATE Buys 
+        SET num_remaining_redemptions = num_remaining_redemptions - 1
+        WHERE cust_id = input_cust_id;
+    ELSE
+        RAISE EXCEPTION 'No course package found for customer';
+    END IF;
 ELSE
-	RAISE NOTICE 'Current payment method: %. Payment method should be credit card or redemption.', input_payment_method;
+    RAISE NOTICE 'Current payment method: %. Payment method should be credit card or redemption.', input_payment_method;
 END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -1132,46 +1132,58 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_my_registrations(input_cust_id INT)
 RETURNS TABLE(course_name VARCHAR, course_fees NUMERIC(36,2), session_date DATE,
 session_start_hour TIME, session_duration INT, instructor_name VARCHAR) AS $$
+DECLARE
+    session_record RECORD;
 BEGIN
     RETURN QUERY
-        (SELECT title, S2.fees, S2.session_date, S2.start_time, duration, S2.instructor_name
-        FROM 
-            (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.instructor_name
-            FROM 
-                (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
-                    S0.name AS instructor_name
-                FROM (Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
-                WHERE S0.cust_id = input_cust_id
-                    AND (
-                        CASE
-                        WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
-                        WHEN S0.session_date > CURRENT_DATE THEN TRUE
-                        ELSE FALSE
-                        END
-                        )
-                    AND S0.depart_date IS NULL) AS S1 -- just to make sure
-                NATURAL JOIN CourseOfferings) AS S2
-            NATURAL JOIN Courses)
-        UNION
-        (SELECT title, S4.fees, S4.session_date, S4.start_time, duration, S4.instructor_name
-        FROM 
-            (SELECT S3.course_id, fees, S3.session_date, S3.start_time, S3.instructor_name
-            FROM 
-                (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
-                    S0.name AS instructor_name
-                FROM (Redeems NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
-                WHERE S0.cust_id = input_cust_id
-                    AND (
-                        CASE
-                        WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
-                        WHEN S0.session_date > CURRENT_DATE THEN TRUE
-                        ELSE FALSE
-                        END
-                        )
-                    AND S0.depart_date IS NULL) AS S3 -- just to make sure
-                NATURAL JOIN CourseOfferings) AS S4
-            NATURAL JOIN Courses)
-        ORDER BY (session_date, start_time) ASC;
+        WITH register_sessions(title, fees, session_date, start_time, duration, instructor_name) AS
+                (SELECT title, S2.fees, S2.session_date, S2.start_time, duration, S2.instructor_name
+                FROM 
+                    (SELECT S1.course_id, fees, S1.session_date, S1.start_time, S1.instructor_name
+                    FROM 
+                        (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
+                            S0.name AS instructor_name
+                        FROM (Registers NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
+                        WHERE S0.cust_id = input_cust_id
+                            AND (
+                                CASE
+                                WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
+                                WHEN S0.session_date > CURRENT_DATE THEN TRUE
+                                ELSE FALSE
+                                END
+                                )
+                            AND S0.depart_date IS NULL) AS S1 -- just to make sure
+                        NATURAL JOIN CourseOfferings) AS S2
+                    NATURAL JOIN Courses),
+
+            redeem_sessions(title, fees, session_date, start_time, duration, instructor_name) AS
+                (SELECT title, S4.fees, S4.session_date, S4.start_time, duration, S4.instructor_name
+                FROM 
+                    (SELECT S3.course_id, fees, S3.session_date, S3.start_time, S3.instructor_name
+                    FROM 
+                        (SELECT S0.launch_date, S0.course_id, S0.session_date, S0.start_time,
+                            S0.name AS instructor_name
+                        FROM (Redeems NATURAL JOIN CourseOfferingSessions NATURAL JOIN Employees) AS S0
+                        WHERE S0.cust_id = input_cust_id
+                            AND (
+                                CASE
+                                WHEN S0.session_date = CURRENT_DATE THEN S0.start_time >= CURRENT_TIME
+                                WHEN S0.session_date > CURRENT_DATE THEN TRUE
+                                ELSE FALSE
+                                END
+                                )
+                            AND S0.depart_date IS NULL) AS S3 -- just to make sure
+                        NATURAL JOIN CourseOfferings) AS S4
+                    NATURAL JOIN Courses),
+            
+            redeem_register_sessions(title, fees, session_date, start_time, duration, instructor_name) AS
+                (SELECT * FROM 
+                    (SELECT * FROM register_sessions
+                    UNION
+                    SELECT * FROM redeem_sessions) AS R0
+                ORDER BY (R0.session_date, R0.start_time) ASC)
+
+        SELECT * FROM redeem_register_sessions;
 END;
 $$ LANGUAGE plpgsql;
         
@@ -1189,6 +1201,8 @@ BEGIN
         WHERE sid = new_sid
         AND course_id = input_course_id
         AND launch_date = input_launch_date;
+    IF num_registrations IS NULL THEN num_registrations := 0;
+    END IF;
 
     IF ((SELECT COUNT(*)
         FROM Registers
@@ -1202,9 +1216,8 @@ BEGIN
                         FROM Rooms R
                         WHERE R.rid = 
                             (SELECT S1.rid
-                                FROM (Registers NATURAL JOIN CourseOfferingSessions) AS S1
-                                WHERE S1.cust_id = input_cust_id
-                                    AND S1.course_id = course_id
+                                FROM CourseOfferingSessions S1
+                                WHERE S1.course_id = course_id
                                     AND S1.launch_date = input_launch_date
                                     AND S1.sid = new_sid)
                             AND R.seating_capacity >= (num_registrations + 1)
@@ -1228,9 +1241,8 @@ BEGIN
                         FROM Rooms R
                         WHERE R.rid = 
                             (SELECT S1.rid
-                                FROM (Redeems NATURAL JOIN CourseOfferingSessions) AS S1
-                                WHERE S1.cust_id = input_cust_id
-                                    AND S1.course_id = course_id
+                                FROM CourseOfferingSessions S1
+                                WHERE S1.course_id = course_id
                                     AND S1.launch_date = input_launch_date
                                     AND S1.sid = new_sid)
                             AND R.seating_capacity >= (num_registrations + 1)
@@ -1310,7 +1322,7 @@ BEGIN
             WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id AND R1.launch_date = input_launch_date) AS S1
             NATURAL JOIN
             CourseOfferingSessions) AS P1;
-        active_package_id := (SELECT package_id
+        active_package_id := (SELECT B.package_id
                               FROM Buys B JOIN Redeems R ON (B.buys_date = R.buys_date
                                                              AND B.cust_id = R.cust_id
                                                              AND B.number = R.number
@@ -1498,15 +1510,15 @@ BEGIN
     /*Course offering registration deadline has not passed*/
     IF registrationDeadline > CURRENT_DATE THEN
         RAISE NOTICE 'Trying add session into course offering sessions';
-		/*Check session constraints*/
-		INSERT INTO CourseOfferingSessions
-		VALUES (input_sessionId, input_sessionStart, endHour, 
+        /*Check session constraints*/
+        INSERT INTO CourseOfferingSessions
+        VALUES (input_sessionId, input_sessionStart, endHour, 
                 input_roomId, input_instructorId, input_courseId, 
                 input_sessionDate, input_launchDate);
     ELSE 
         RAISE EXCEPTION 'Either course offering does not exist or registration deadline 
         has passed the current date, can not add session';
-	END IF;
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1588,25 +1600,24 @@ DECLARE
     customerRecord RECORD;
     courseRecord RECORD;
 BEGIN
-    FOR customerRecord IN (SELECT C1.cust_id, C1.name
-        FROM Registers R1 RIGHT JOIN Customers C1 ON (C1.cust_id = R1.cust_id)
+    FOR customerRecord IN (SELECT R1.cust_id, C1.name
+        FROM Registers R1 JOIN Customers C1 ON (C1.cust_id = R1.cust_id)
         EXCEPT
         SELECT R2.cust_id, C2.name
-        FROM Registers R2 RIGHT JOIN Customers C2 ON (C2.cust_id = R2.cust_id)
+        FROM Registers R2 JOIN Customers C2 ON (C2.cust_id = R2.cust_id)
         WHERE registers_date > (CURRENT_DATE - INTERVAL '6 months') -- Active customers
-		ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
+        ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
     )
-	-- customerRecord now holds all inactive customers
     LOOP
         /*Every course area is of interest as there are no registrations yet*/
         IF NOT EXISTS (SELECT 1 
-                    FROM Registers R
-                    WHERE R.cust_id = customerRecord.cust_id) THEN
+                    FROM Registers
+                    WHERE cust_id = input_custId) THEN
             /*Get all courseRecords available, since all are of interest*/
             FOR courseRecord IN (SELECT * 
-                                FROM (CourseOfferings CO JOIN Courses C ON (CO.course_id = C.course_id)) AS CourseData
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
                                 ORDER BY CourseData.registration_deadline ASC)
-			LOOP
+            LOOP
                 cust_id := customerRecord.cust_id;
                 cust_name = customerRecord.name;
                 course_area := courseRecord.course_area_name;
@@ -1622,16 +1633,16 @@ BEGIN
         ELSE 
             /*Get all course record that are in the customer's interest area*/
             FOR courseRecord IN (SELECT *
-                                FROM (CourseOfferings CO JOIN Courses C ON (CO.course_id = C.course_id)) AS CourseData
+                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
                                 WHERE EXISTS(SELECT 1
-                                             FROM (SELECT TopThree.course_area_name
-													FROM (Registers R JOIN Courses C ON (R.course_id = C.course_id)) AS TopThree
-													WHERE customerRecord.cust_id = TopThree.cust_id
-													ORDER BY TopThree.registers_date DESC -- Earliest to latest
-													LIMIT 3) as TopThreeAreas
-                                             WHERE TopThreeAreas.course_area_name = CourseData.course_area_name)
+                                             FROM (SELECT course_area
+                                                    FROM (Registers R JOIN Courses C ON (R.course_id = C.course_id)) AS TopThree
+                                                    WHERE customerRecord.cust_id = TopThree.cust_id
+                                                    ORDER BY R.registers_date DESC -- Earliest to latest
+                                                    LIMIT 3) as TopThreeAreas
+                                             WHERE TopThreeAreas.course_area = CourseData.course_area_name)
                                 ORDER BY CourseData.registration_deadline ASC)
-			LOOP
+            LOOP
                 cust_id := customerRecord.cust_id;
                 cust_name = customerRecord.name;
                 course_area := courseRecord.course_area_name;
@@ -1692,24 +1703,21 @@ DECLARE
     secondNumRegistrations INT;
 BEGIN
     FOR firstCourseOffering IN 
- 		(SELECT CO1.course_id, CO1.launch_date, CO1.start_date
+        (SELECT CO1.course_id
         FROM CourseOfferings CO1, CourseOfferings CO2
         WHERE CO1.course_id = CO2.course_id 
         AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
         AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
-        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE)
-		AND CO1.start_date < CO2.start_date)
+        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
     LOOP
-		RAISE NOTICE 'Looping through first course offering: %', firstCourseOffering.course_id; 
         FOR secondCourseOffering IN
-			(SELECT CO1.course_id, CO1.launch_date, CO1.start_date
-			FROM CourseOfferings CO1, CourseOfferings CO2
-			WHERE CO1.course_id = CO2.course_id 
-			AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
-			AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
-			AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
+            (SELECT CO1.course_id
+            FROM CourseOfferings CO1, CourseOfferings CO2
+            WHERE CO1.course_id = CO2.course_id 
+            AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
+            AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
+            AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
         LOOP
-			RAISE NOTICE 'Looping through second course offering: %', secondCourseOffering.course_id;
             /*Different course, or same course and same course offering*/
             IF firstCourseOffering.course_id <> secondCourseOffering.course_id 
             OR (firstCourseOffering.course_id = secondCourseOffering.course_id 
@@ -1730,41 +1738,38 @@ BEGIN
 
             /*Same course but different offering*/
             IF firstCourseOffering.start_date > secondCourseOffering.start_date THEN -- First has later start date than second
-				RAISE NOTICE 'First course offering is earlier than second';
                 IF firstNumRegistrations > secondNumRegistrations THEN
                     course_id := firstCourseOffering.course_id;
-                    title :=  (SELECT C.title
-                              FROM Courses C
-                              WHERE C.course_id = firstCourseOffering.course_id);
-                    course_area :=  (SELECT C.course_area_name 
-                                    FROM Courses C
-                                    WHERE C.course_id = firstCourseOffering.course_id);
+                    title :=  (SELECT title
+                              FROM Courses
+                              WHERE course_id = firstCourseOffering.course_id);
+                    course_area :=  (SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = firstCourseOffering.course_id);
                     num_offerings := (SELECT COUNT(*)
                                      FROM CourseOfferings CO
-                                     WHERE firstCourseOffering.course_id = CO.course_id
+                                     WHERE firstCourseOffering.course_id = CO.id
                                      AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
                     num_registrations := firstNumRegistrations;
                     RETURN NEXT;
                 END IF;
             ELSIF secondCourseOffering.start_date > firstCourseOffering.start_date THEN
-				RAISE NOTICE 'Second course offering is earlier than first';
                 IF secondNumRegistrations > firstNumRegistrations THEN
                     course_id := secondCourseOffering.course_id;
-                    title :=  (SELECT C.title
-                              FROM Courses C
-                              WHERE C.course_id = secondCourseOffering.course_id);
-                    course_area :=  (SELECT C.course_area_name 
-                                    FROM Courses C
-                                    WHERE C.course_id = secondCourseOffering.course_id);
+                    title :=  (SELECT title
+                              FROM Courses
+                              WHERE course_id = secondCourseOffering.course_id);
+                    course_area :=  (SELECT course_area_name 
+                                    FROM Courses
+                                    WHERE course_id = secondCourseOffering.course_id);
                     num_offerings := (SELECT COUNT(*)
                                      FROM CourseOfferings CO
-                                     WHERE secondCourseOffering.course_id = CO.course_id
+                                     WHERE secondCourseOffering.course_id = CO.id
                                      AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
                     num_registrations := secondNumRegistrations;
                     RETURN NEXT;
                 END IF;
             ELSE
-				RAISE NOTICE 'Both courses have the same start date. Neither is more popular';
                 CONTINUE; -- Same start date, do nothing
             END IF;
         END LOOP;
@@ -1795,6 +1800,8 @@ BEGIN
             FROM Buys B1
             WHERE (SELECT EXTRACT(MONTH FROM B1.buys_date)) 
                 = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        IF total_num_package_sales IS NULL THEN total_num_package_sales := 0;
+        END IF;
         SELECT SUM(O1.fees) INTO total_fees_paid_credit_card
             FROM Registers R1, CourseOfferingSessions S1, CourseOfferings O1
             WHERE (SELECT EXTRACT(MONTH FROM R1.registers_date)) 
@@ -1812,6 +1819,8 @@ BEGIN
             FROM Redeems R1
             WHERE (SELECT EXTRACT(MONTH FROM R1.redeems_date)) 
                 = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        IF num_package_registrations IS NULL THEN num_package_registrations := 0;
+        END IF;
         curr_month_date := curr_month_date - INTERVAL '1 month';
         months_left := months_left - 1;
         RETURN NEXT;
