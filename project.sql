@@ -236,22 +236,3 @@ CREATE TABLE Cancels (
     FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE,
     FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON DELETE CASCADE
 );
-
-
-/*
-Constraints I think are not captured:
-
-
-Isaac- I think my triggers covers the first and second constraint stated here. However, third constraint I haven't implemented yet
-
-
-1) The offerings for the same course have different launch dates.
-
-2) The seating capacity of a course session is equal to the seating capacity of the room where the session is conducted, 
-and the seating capacity of a course offering is equal to the sum of the seating capacities of its sessions
-
-3) A course offering is said to be available if the number of registrations received is no more than its seating capacity; 
-otherwise, we say that a course offering is fully booked.
-
-
-*/
