@@ -1593,21 +1593,24 @@ DECLARE
     secondNumRegistrations INT;
 BEGIN
     FOR firstCourseOffering IN 
- 		(SELECT CO1.course_id
+ 		(SELECT CO1.course_id, CO1.launch_date, CO1.start_date
         FROM CourseOfferings CO1, CourseOfferings CO2
         WHERE CO1.course_id = CO2.course_id 
         AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
         AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
-        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
+        AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE)
+		AND CO1.start_date < CO2.start_date)
     LOOP
+		RAISE NOTICE 'Looping through first course offering: %', firstCourseOffering.course_id; 
         FOR secondCourseOffering IN
-			(SELECT CO1.course_id
+			(SELECT CO1.course_id, CO1.launch_date, CO1.start_date
 			FROM CourseOfferings CO1, CourseOfferings CO2
 			WHERE CO1.course_id = CO2.course_id 
 			AND CO1.launch_date <> CO2.launch_date -- Same course but different offering
 			AND date_part('year', CO1.start_date) = date_part('year', CURRENT_DATE) -- Within current year
 			AND date_part('year', CO2.start_date) = date_part('year', CURRENT_DATE))
         LOOP
+			RAISE NOTICE 'Looping through second course offering: %', secondCourseOffering.course_id;
             /*Different course, or same course and same course offering*/
             IF firstCourseOffering.course_id <> secondCourseOffering.course_id 
             OR (firstCourseOffering.course_id = secondCourseOffering.course_id 
@@ -1628,38 +1631,41 @@ BEGIN
 
             /*Same course but different offering*/
             IF firstCourseOffering.start_date > secondCourseOffering.start_date THEN -- First has later start date than second
+				RAISE NOTICE 'First course offering is earlier than second';
                 IF firstNumRegistrations > secondNumRegistrations THEN
                     course_id := firstCourseOffering.course_id;
-                    title :=  (SELECT title
-                              FROM Courses
-                              WHERE course_id = firstCourseOffering.course_id);
-                    course_area :=  (SELECT course_area_name 
-                                    FROM Courses
-                                    WHERE course_id = firstCourseOffering.course_id);
+                    title :=  (SELECT C.title
+                              FROM Courses C
+                              WHERE C.course_id = firstCourseOffering.course_id);
+                    course_area :=  (SELECT C.course_area_name 
+                                    FROM Courses C
+                                    WHERE C.course_id = firstCourseOffering.course_id);
                     num_offerings := (SELECT COUNT(*)
                                      FROM CourseOfferings CO
-                                     WHERE firstCourseOffering.course_id = CO.id
+                                     WHERE firstCourseOffering.course_id = CO.course_id
                                      AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
                     num_registrations := firstNumRegistrations;
                     RETURN NEXT;
                 END IF;
             ELSIF secondCourseOffering.start_date > firstCourseOffering.start_date THEN
+				RAISE NOTICE 'Second course offering is earlier than first';
                 IF secondNumRegistrations > firstNumRegistrations THEN
                     course_id := secondCourseOffering.course_id;
-                    title :=  (SELECT title
-                              FROM Courses
-                              WHERE course_id = secondCourseOffering.course_id);
-                    course_area :=  (SELECT course_area_name 
-                                    FROM Courses
-                                    WHERE course_id = secondCourseOffering.course_id);
+                    title :=  (SELECT C.title
+                              FROM Courses C
+                              WHERE C.course_id = secondCourseOffering.course_id);
+                    course_area :=  (SELECT C.course_area_name 
+                                    FROM Courses C
+                                    WHERE C.course_id = secondCourseOffering.course_id);
                     num_offerings := (SELECT COUNT(*)
                                      FROM CourseOfferings CO
-                                     WHERE secondCourseOffering.course_id = CO.id
+                                     WHERE secondCourseOffering.course_id = CO.course_id
                                      AND date_part('year', CO.start_date) = date_part('year', CURRENT_DATE)); -- Within current year
                     num_registrations := secondNumRegistrations;
                     RETURN NEXT;
                 END IF;
             ELSE
+				RAISE NOTICE 'Both courses have the same start date. Neither is more popular';
                 CONTINUE; -- Same start date, do nothing
             END IF;
         END LOOP;
