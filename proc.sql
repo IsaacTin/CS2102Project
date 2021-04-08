@@ -1398,9 +1398,13 @@ BEGIN
 
     /*Course offering registration deadline has not passed*/
     IF registrationDeadline > CURRENT_DATE THEN
+        RAISE NOTICE 'Trying add session into course offering sessions';
 		/*Check session constraints*/
 		INSERT INTO CourseOfferingSessions
 		VALUES (number, input_sessionStart, endHour, input_roomId, input_instructorId, input_courseId, input_sessionDate, input_launchDate);
+    ELSE 
+        RAISE EXCEPTION 'Either course offering does not exist or registration deadline 
+        has passed the current date, can not add session';
 	END IF;
 END;
 $$ LANGUAGE plpgsql;
