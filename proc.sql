@@ -25,8 +25,17 @@ BEGIN
         WHERE NEW.course_id = course_id 
         AND NEW.launch_date = launch_date 
         AND NEW.session_date = session_date
+        AND NEW.start_time BETWEEN start_time AND end_time - INTERVAL '1 second'
+        AND NEW.eid <> eid) THEN -- Only instructor being changed, should allow
+        RETURN NEW;
+    ELSIF EXISTS (SELECT 1 FROM CourseOfferingSessions 
+        WHERE NEW.course_id = course_id 
+        AND NEW.launch_date = launch_date 
+        AND NEW.session_date = session_date
         AND NEW.start_time BETWEEN start_time AND end_time - INTERVAL '1 second') THEN
-        RAISE EXCEPTION 'No course offering session of the same course offering to be conducted on same day and time.';
+        RAISE EXCEPTION 'No course offering session of the same course offering to be conducted on same day and time.
+        Course offering session details are: Launch date: %, session date: %, start time: %', NEW.launch_date,
+        NEW.session_date, NEW.start_time;
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -1270,17 +1279,27 @@ BEGIN
     IF NOT EXISTS(SELECT 1
                   FROM Instructors
                   WHERE eid = input_instructorId) THEN
+        RAISE EXCEPTION 'Instructor ID: % does not exist', input_instructorId;
         RETURN;
     END IF;
 
-
-    /*Update if course session hasn't started*/
-    UPDATE CourseOfferingSessions
-    SET eid = input_instructorId
-    WHERE course_id = input_courseId
-    AND sid = input_sessionId
-    AND launch_date = input_launchDate
-    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+    IF NOT EXISTS (SELECT 1
+                   FROM CourseOfferingSessions
+                   WHERE course_id = input_courseId
+                   AND sid = input_sessionId
+                   AND launch_date = input_launchDate
+                   AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME)) THEN
+        RAISE EXCEPTION 'Update unsuccessful. Either Course ID, session ID, and launch date does not match
+        any course offering sessions. Or the course offering session you are trying to update has already begun.';
+    ELSE 
+        RAISE NOTICE 'Instructor update for course offering session successful';
+        UPDATE CourseOfferingSessions
+        SET eid = input_instructorId
+        WHERE course_id = input_courseId
+        AND sid = input_sessionId
+        AND launch_date = input_launchDate
+        AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1310,7 +1329,7 @@ BEGIN
     WHERE course_id = input_courseId
     AND sid = input_sessionId
     AND launch_date = input_launchDate
-    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+    AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1331,7 +1350,7 @@ BEGIN
     WHERE course_id = input_courseId
     AND sid = input_sessionId
     AND launch_date = input_launchDate
-    AND (session_date + end_time) < INTERVAL '0'; -- Course session hasn't started
+    AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
 END;
 $$ LANGUAGE plpgsql;
 
