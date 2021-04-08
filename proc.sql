@@ -1819,6 +1819,8 @@ BEGIN
             FROM Redeems R1
             WHERE (SELECT EXTRACT(MONTH FROM R1.redeems_date)) 
                 = (SELECT EXTRACT(MONTH FROM curr_month_date));
+        IF num_package_registrations IS NULL THEN num_package_registrations := 0;
+        END IF;
         curr_month_date := curr_month_date - INTERVAL '1 month';
         months_left := months_left - 1;
         RETURN NEXT;
