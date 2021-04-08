@@ -405,6 +405,105 @@ AFTER INSERT OR UPDATE ON Redeems
 FOR EACH ROW
 EXECUTE FUNCTION check_if_available_or_fully_booked_Redeems();
 
+/*ENSURES INTEGRITY OF CREDIT CARDS AND CUSTOMERS*/
+
+CREATE OR REPLACE FUNCTION check_if_valid_active_credit_card()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Customers WHERE NEW.cust_id = cust_id AND NEW.number = number) THEN
+        RAISE EXCEPTION 'Invalid card. No customer is using this card as active credit card currently';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_valid_active_credit_card ON Credit_cards;
+CREATE CONSTRAINT TRIGGER check_if_valid_active_credit_card 
+AFTER INSERT OR UPDATE ON Credit_cards
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW
+EXECUTE FUNCTION check_if_valid_active_credit_card();
+
+/*ENSURE INTEGRITY OF EMPLOYEES BEING IN EITHER PART TIME OR FULL TIME EMPLOYEE*/
+
+CREATE OR REPLACE FUNCTION check_if_valid_employee()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        (SELECT COUNT(*) FROM Full_time_Emp WHERE NEW.eid = eid)
+        +
+        (SELECT COUNT(*) FROM Part_time_Emp WHERE NEW.eid = eid) <> 1
+    ) THEN
+        RAISE EXCEPTION 'Employee must be only be either full time or part time';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+    
+DROP TRIGGER IF EXISTS check_if_valid_employee ON Employees;
+CREATE CONSTRAINT TRIGGER check_if_valid_employee
+AFTER INSERT OR UPDATE ON Employees
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW
+EXECUTE FUNCTION check_if_valid_employee();
+
+
+CREATE OR REPLACE FUNCTION check_if_valid_full_time()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (
+        (SELECT COUNT(*) FROM Full_time_instructors WHERE NEW.eid = eid)
+        + 
+        (SELECT COUNT(*) FROM Administrators WHERE NEW.eid = eid)
+        +
+        (SELECT COUNT(*) FROM Managers WHERE NEW.eid = eid) <> 1
+    ) THEN 
+        RAISE EXCEPTION 'Full time employee must be only either a full time instructor, an administrator or a manager.';
+        RETURN NULL;
+    ELSIF EXISTS (SELECT 1 FROM Part_time_instructors WHERE NEW.eid = eid) THEN
+        RAISE EXCEPTION 'Full time employee cannot be part time instructor';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_valid_full_time ON Full_time_Emp;
+CREATE CONSTRAINT TRIGGER check_if_valid_full_time
+AFTER INSERT OR UPDATE ON Full_time_Emp
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW
+EXECUTE FUNCTION check_if_valid_full_time();
+
+
+CREATE OR REPLACE FUNCTION check_if_valid_part_time()
+RETURNS TRIGGER AS $$
+BEGIN
+   IF NOT EXISTS (SELECT 1 FROM Part_time_instructors WHERE NEW.eid = eid) THEN
+        RAISE EXCEPTION 'Part time employee must part time instructor';
+        RETURN NULL;
+    ELSIF EXISTS (
+        SELECT 1 FROM Full_time_instructors F, Administrators A, Managers M WHERE NEW.eid = F.eid OR NEW.eid = A.eid OR NEW.eid = M.eid) THEN
+        RAISE EXCEPTION 'Part time employee cannot be an administrator, full time instructor or a manager';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_valid_part_time ON Part_time_Emp;
+CREATE CONSTRAINT TRIGGER check_if_valid_part_time
+AFTER INSERT OR UPDATE ON Part_time_Emp
+DEFERRABLE INITIALLY IMMEDIATE
+FOR EACH ROW
+EXECUTE FUNCTION check_if_valid_part_time();
+
 /*ENDS HERE*/ 
 
 -- 1
@@ -415,6 +514,10 @@ DECLARE
         area VARCHAR;
 BEGIN
         SET CONSTRAINTS check_instructor_specialization DEFERRED;
+        SET CONSTRAINTS check_if_valid_employee DEFERRED;
+        SET CONSTRAINTS check_if_valid_full_time DEFERRED;
+        SET CONSTRAINTS check_if_valid_part_time DEFERRED;
+
         INSERT INTO Employees(name, phone, address, email, depart_date, join_date) 
         VALUES(input_Name, input_Phone, input_Address, input_Email, NULL, input_Join_date);
 
@@ -471,22 +574,10 @@ BEGIN
         EXISTS (SELECT 1 FROM CourseAreaManaged WHERE eid = input_Eid)
         )
     THEN
-        RAISE NOTICE 'Unable to remove employee.';
+        RAISE EXCEPTION 'Unable to remove employee.';
     ELSE 
         UPDATE Employees
         SET depart_date = input_DepartureDate
-        WHERE eid = input_Eid;
-        DELETE FROM Full_time_Emp
-        WHERE eid = input_Eid;
-        DELETE FROM Part_time_Emp
-        WHERE eid = input_Eid;
-        DELETE FROM Instructors
-        WHERE eid = input_Eid;
-        DELETE FROM Administrators
-        WHERE eid = input_Eid;
-        DELETE FROM Managers
-        WHERE eid = input_Eid;
-        DELETE FROM Specializes
         WHERE eid = input_Eid;
     END IF;
 END;
@@ -499,21 +590,22 @@ AS $$
 DECLARE 
     customerID INT;
 BEGIN 
+    SET CONSTRAINTS check_if_valid_active_credit_card DEFERRED;
     INSERT INTO Customers(phone, address, email, name, number) VALUES(input_Phone, input_Address, input_Email, input_Name, input_Number);
     SELECT cust_id INTO customerID FROM Customers WHERE number = input_Number GROUP BY cust_id; /*added groupby to ensure that it is only one value(though it shouldnt have more anyway)*/
-    INSERT INTO Credit_Cards VALUES(input_Number, input_CVV, input_Date, CURRENT_DATE, customerID);
+    INSERT INTO Credit_cards VALUES(input_Number, input_CVV, input_Date, CURRENT_DATE, customerID);
 END;
 $$ LANGUAGE plpgsql;
 
 
 -- 4
-/*REMB TO MAKE A TRIGGER FOR THIS'*/
 CREATE OR REPLACE PROCEDURE update_credit_card(input_ID INT, input_Number VARCHAR(16), input_Date DATE, input_CVV INT)
 AS $$
 DECLARE
     currentActive VARCHAR(16);
 BEGIN 
-    SELECT number INTO currentActive FROM Credit_cards WHERE cust_id = input_ID ORDER BY from_date DESC LIMIT 1;
+    SET CONSTRAINTS check_if_valid_active_credit_card DEFERRED;
+    SELECT number INTO currentActive FROM Customers WHERE cust_id = input_ID;
     INSERT INTO Credit_cards VALUES(input_Number, input_CVV, input_Date, CURRENT_DATE, input_ID); /*add trigger to confirm this*/
     UPDATE Customers
 	SET number = input_Number 
@@ -575,7 +667,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-/*TODO correct total hours worked*/
 -- 7
 CREATE OR REPLACE FUNCTION get_available_instructors(input_Cid INT, input_StartDate DATE, input_EndDate DATE)
 RETURNS TABLE(eid INT, name VARCHAR, hours int, day DATE, availableHours TIME[]) AS $$
@@ -597,7 +688,15 @@ BEGIN
         currDate := input_StartDate;
         hours := 0;
         IF EXISTS (SELECT 1 FROM CourseOfferingSessions C WHERE r.eid = C.eid) THEN
-            SELECT SUM((SELECT EXTRACT (HOUR FROM session_date + end_time)) - (SELECT EXTRACT (HOUR FROM session_date + start_time))) FROM CourseOfferingSessions C WHERE r.eid = C.eid INTO hours;
+            SELECT 
+                SUM(
+                        (SELECT EXTRACT (HOUR FROM session_date + end_time)) 
+                        - 
+                        (SELECT EXTRACT (HOUR FROM session_date + start_time))
+                    ) 
+            FROM CourseOfferingSessions C 
+            WHERE r.eid = C.eid AND C.session_date BETWEEN input_StartDate AND (input_StartDate + INTERVAL '1 month') /*I assume when qn ask for 'this month', means month starting from start date being inputted (if not it wont work when start date and end date are different months*/
+            INTO hours;
         END IF;
         LOOP 
             EXIT WHEN currDate > input_EndDate;
@@ -667,7 +766,7 @@ $$ LANGUAGE plpgsql;
 
 
 -- 9
-CREATE OR REPLACE FUNCTION get_available_rooms(input_StartDate DATE, input_EndDate DATE) 
+CREATE OR REPLACE FUNCTION get_available_rooms(input_StartDate DATE, input_EndDate DATE, input_duration INT) 
 RETURNS TABLE(rid INT, capacity INT, day DATE, availableHours TIME[]) AS $$
 DECLARE
     curs1 CURSOR FOR (SELECT * FROM Rooms ORDER BY rid ASC);
@@ -687,7 +786,7 @@ BEGIN
             LOOP
                 currTime := currTime + INTERVAL '1 hour';
                 EXIT WHEN currTime = TIME '18:00:00';
-                IF EXISTS (SELECT 1 FROM find_rooms(currDate, currTime, 1) F WHERE F.rid = r.rid) THEN
+                IF EXISTS (SELECT 1 FROM find_rooms(currDate, currTime, input_duration) F WHERE F.rid = r.rid) THEN
                     rid := r.rid;
                     capacity := r.seating_capacity;
                     day := currDate;
