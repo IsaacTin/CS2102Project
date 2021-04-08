@@ -25,6 +25,7 @@ BEGIN
         WHERE NEW.course_id = course_id 
         AND NEW.launch_date = launch_date 
         AND NEW.session_date = session_date
+        AND NEW.sid = sid
         AND NEW.start_time BETWEEN start_time AND end_time - INTERVAL '1 second'
         AND NEW.eid <> eid) THEN -- Only instructor being changed, should allow
         RETURN NEW;
@@ -1292,7 +1293,7 @@ BEGIN
         RAISE EXCEPTION 'Update unsuccessful. Either Course ID, session ID, and launch date does not match
         any course offering sessions. Or the course offering session you are trying to update has already begun.';
     ELSE 
-        RAISE NOTICE 'Instructor update for course offering session successful';
+        RAISE NOTICE 'Beginning update for course offering session';
         UPDATE CourseOfferingSessions
         SET eid = input_instructorId
         WHERE course_id = input_courseId
