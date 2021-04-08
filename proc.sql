@@ -1489,22 +1489,23 @@ DECLARE
     customerRecord RECORD;
     courseRecord RECORD;
 BEGIN
-    FOR customerRecord IN (SELECT R1.cust_id, C1.name
-        FROM Registers R1 JOIN Customers C1 ON (C1.cust_id = R1.cust_id)
+    FOR customerRecord IN (SELECT C1.cust_id, C1.name
+        FROM Registers R1 RIGHT JOIN Customers C1 ON (C1.cust_id = R1.cust_id)
         EXCEPT
         SELECT R2.cust_id, C2.name
-        FROM Registers R2 JOIN Customers C2 ON (C2.cust_id = R2.cust_id)
+        FROM Registers R2 RIGHT JOIN Customers C2 ON (C2.cust_id = R2.cust_id)
         WHERE registers_date > (CURRENT_DATE - INTERVAL '6 months') -- Active customers
 		ORDER BY cust_id ASC -- Ensure output table is in ASC order of cust_id
     )
+	-- customerRecord now holds all inactive customers
     LOOP
         /*Every course area is of interest as there are no registrations yet*/
         IF NOT EXISTS (SELECT 1 
-                    FROM Registers
-                    WHERE cust_id = input_custId) THEN
+                    FROM Registers R
+                    WHERE R.cust_id = customerRecord.cust_id) THEN
             /*Get all courseRecords available, since all are of interest*/
             FOR courseRecord IN (SELECT * 
-                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                FROM (CourseOfferings CO JOIN Courses C ON (CO.course_id = C.course_id)) AS CourseData
                                 ORDER BY CourseData.registration_deadline ASC)
 			LOOP
                 cust_id := customerRecord.cust_id;
@@ -1522,14 +1523,14 @@ BEGIN
         ELSE 
             /*Get all course record that are in the customer's interest area*/
             FOR courseRecord IN (SELECT *
-                                FROM (CourseOfferings CO JOIN Course C ON (CO.course_id = C.course_id)) AS CourseData
+                                FROM (CourseOfferings CO JOIN Courses C ON (CO.course_id = C.course_id)) AS CourseData
                                 WHERE EXISTS(SELECT 1
-                                             FROM (SELECT course_area
+                                             FROM (SELECT TopThree.course_area_name
 													FROM (Registers R JOIN Courses C ON (R.course_id = C.course_id)) AS TopThree
 													WHERE customerRecord.cust_id = TopThree.cust_id
-													ORDER BY R.registers_date DESC -- Earliest to latest
+													ORDER BY TopThree.registers_date DESC -- Earliest to latest
 													LIMIT 3) as TopThreeAreas
-                                             WHERE TopThreeAreas.course_area = CourseData.course_area_name)
+                                             WHERE TopThreeAreas.course_area_name = CourseData.course_area_name)
                                 ORDER BY CourseData.registration_deadline ASC)
 			LOOP
                 cust_id := customerRecord.cust_id;
