@@ -85,7 +85,7 @@ EXECUTE FUNCTION check_register();
 CREATE OR REPLACE FUNCTION check_redeems()
 RETURNS TRIGGER AS $$
 DECLARE
-    registrationDeadline INT;
+    registrationDeadline DATE;
 BEGIN
     SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
     IF EXISTS (
@@ -96,7 +96,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Cannot register for more than one session of same course offering';
         RETURN NULL;
-    ELSIF (NEW.registers_date >= registration_deadline) THEN
+    ELSIF (NEW.redeems_date >= registrationDeadline) THEN 
         RAISE EXCEPTION 'Must register before registration deadline';
         RETURN NULL;
     ELSIF EXISTS (
@@ -335,7 +335,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS check_customer_active_packages ON Buys;
 CREATE TRIGGER check_customer_active_packages
-BEFORE INSERT OR UPDATE ON Buys
+BEFORE INSERT ON Buys --removed OR UPDATE since active/partially active pkgs with num_remaining_redemptions have to be updated 
 FOR EACH ROW
 EXECUTE FUNCTION check_customer_active_packages();
 
@@ -962,27 +962,53 @@ CREATE OR REPLACE PROCEDURE register_session(input_cust_id INT, input_course_id 
 											 input_launch_date DATE, input_session_number INT,
 											 input_payment_method VARCHAR) 
 AS $$
+DECLARE
+	var_buys_date DATE;
+	var_cc_number VARCHAR(16);
+	var_package_id INT;
+	var_sid INT;
+	var_launch_date DATE;
+	curr_num_registered INT;
+	curr_num_redeemed INT;
+	total_seats INT;
 BEGIN
+-- check if session is full
+SELECT COUNT(*) INTO curr_num_registered FROM Registers 
+	WHERE course_id = input_course_id 
+	AND sid = input_session_number 
+	AND launch_date = input_launch_date;
+SELECT COUNT(*) INTO curr_num_redeemed FROM Redeems 
+	WHERE course_id = input_course_id 
+	AND sid = input_session_number 
+	AND launch_date = input_launch_date;
+SELECT rid INTO total_seats FROM CourseOfferingSessions 
+	WHERE sid = input_session_number
+	AND launch_date = input_launch_date
+	AND course_id = input_course_id;
+IF (total_seats - curr_num_registered - curr_num_redeemed <= 0) THEN -- shouldn't be less than, but jic
+	RAISE EXCEPTION 'session is full, cannot register/redeem';
+END IF;
+
 IF input_payment_method = 'credit card' THEN
 	INSERT INTO Registers (registers_date, cust_id, number, sid, course_id, launch_date)
 	VALUES (CURRENT_DATE, input_cust_id, (SELECT number FROM Customers WHERE cust_id = input_cust_id), 
 			input_session_number, input_course_id, input_launch_date);
 ELSIF input_payment_method = 'redemption' THEN
 	-- update Redeems
+	SELECT buys_date, number, package_id INTO var_buys_date, var_cc_number, var_package_id
+		FROM Buys WHERE cust_id = input_cust_id;
+	SELECT sid, launch_date INTO var_sid, var_launch_date 
+		FROM CourseOfferingSessions WHERE course_id = input_course_id;
 	INSERT INTO Redeems (redeems_date, buys_date, cust_id, number, package_id, sid, course_id, launch_date)
-	VALUES (CURRENT_DATE, 
-			(SELECT buys_date, cust_id, number, package_id 
-			 FROM Buys 
-			 WHERE cust_id = input_cust_id), -- 1 entry by right
-		    (SELECT sid. cust_id, launch_date 
-			 FROM CourseOfferingSessions 
-			 WHERE cust_id = input_cust_id 
-			 AND launch_date = input_launch_date)); -- 1 entry
+	VALUES (CURRENT_DATE, var_buys_date, input_cust_id, var_cc_number, 
+			var_package_id, var_sid, input_course_id, var_launch_date);
+
     -- update Buys, minus one from redemption
 	-- There should only be 1 entry as each customer can have at most one active or partially active package.
 	IF (SELECT COUNT(*) FROM Buys WHERE cust_id = input_cust_id AND num_remaining_redemptions > 0) = 1 THEN
 		UPDATE Buys 
-		SET num_remaining_redemptions = num_remaining_redemptions - 1;
+		SET num_remaining_redemptions = num_remaining_redemptions - 1
+		WHERE cust_id = input_cust_id;
 	ELSE
 		RAISE EXCEPTION 'No course package found for customer';
 	END IF;
