@@ -27,7 +27,7 @@ BEGIN
         AND NEW.session_date = session_date
         AND NEW.sid = sid
         AND NEW.start_time BETWEEN start_time AND end_time - INTERVAL '1 second'
-        AND NEW.eid <> eid) THEN -- Only instructor being changed, should allow
+        AND (NEW.eid <> eid OR NEW.rid <> rid)) THEN -- Only instructor being changed, should allow
         RETURN NEW;
     ELSIF EXISTS (SELECT 1 FROM CourseOfferingSessions 
         WHERE NEW.course_id = course_id 
@@ -1321,16 +1321,28 @@ BEGIN
                   FROM Rooms
                   WHERE rid = input_roomId
                   AND seating_capacity >= numRegistrations) THEN
+        RAISE EXCEPTION 'Either the room ID does not exist, or the seating capacity of the room
+        is more that the number of registrations';
         RETURN;
     END IF;
 
-    /*Update if course session hasn't started*/
-    UPDATE CourseOfferingSessions
-    SET rid = input_roomId
-    WHERE course_id = input_courseId
-    AND sid = input_sessionId
-    AND launch_date = input_launchDate
-    AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
+    IF NOT EXISTS (SELECT 1
+                   FROM CourseOfferingSessions
+                   WHERE course_id = input_courseId
+                   AND sid = input_sessionId
+                   AND launch_date = input_launchDate
+                   AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME)) THEN
+        RAISE EXCEPTION 'Update unsuccessful. Either Course ID, session ID, and launch date does not match
+        any course offering sessions. Or the course offering session you are trying to update has already begun.';
+    ELSE 
+        /*Update if course session hasn't started*/
+        UPDATE CourseOfferingSessions
+        SET rid = input_roomId
+        WHERE course_id = input_courseId
+        AND sid = input_sessionId
+        AND launch_date = input_launchDate
+        AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
