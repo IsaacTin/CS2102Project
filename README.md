@@ -21,19 +21,3 @@
   13. `delete from Buys`
   14. `insert into Buys(buys_date, num_remaining_redemptions, cust_id, number, package_id) values('2012-07-04', 0, 1, 1234567812345678, 2);`
   15. `insert into CourseOffering`
-  16
-  16. `insert into Redeems()
-
-CREATE TABLE Redeems (
-    redeems_date                    DATE,
-    buys_date                       DATE,
-    sid                             INT,
-    course_id                       INT,
-    launch_date                     DATE,
-    cust_id                         INT,
-    number                          VARCHAR(16),
-    package_id                      INT,
-    FOREIGN KEY (buys_date, cust_id, number, package_id) REFERENCES Buys(buys_date, cust_id, number, package_id) ON DELETE CASCADE, -- Aggregation
-    FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE,
-    PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
-);
