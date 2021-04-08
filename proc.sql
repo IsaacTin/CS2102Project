@@ -47,7 +47,7 @@ customer can register for at most one of its session before its registration dea
 CREATE OR REPLACE FUNCTION check_register()
 RETURNS TRIGGER AS $$
 DECLARE
-    registrationDeadline INT;
+    registrationDeadline DATE;
 BEGIN
     SELECT registration_deadline FROM CourseOfferings WHERE launch_date = NEW.launch_date AND course_id = NEW.course_id INTO registrationDeadline;
    IF EXISTS (
@@ -58,7 +58,7 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Cannot register for more than one session of same course offering';
         RETURN NULL;
-    ELSIF (NEW.registers_date >= registration_deadline) THEN
+    ELSIF (NEW.registers_date >= registrationDeadline) THEN
         RAISE EXCEPTION 'Must register before registration deadline';
         RETURN NULL;
     ELSIF EXISTS (
@@ -359,8 +359,10 @@ BEGIN
 
     IF (totalRegistersAndRedeems > seatingCapacity) THEN
         RAISE EXCEPTION 'Course offering is fully booked';
+        RETURN NULL;
     ELSE
         RAISE NOTICE 'Course offering is still available';
+        RETURN NEW;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -389,8 +391,10 @@ BEGIN
 
     IF (totalRegistersAndRedeems > seatingCapacity) THEN
         RAISE EXCEPTION 'Course offering is fully booked';
+        RETURN NULL;
     ELSE
         RAISE NOTICE 'Course offering is still available';
+        RETURN NEW;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -1125,12 +1129,16 @@ BEGIN
         WHERE cust_id = input_cust_id AND course_id = input_course_id AND launch_date = input_launch_date
         ) > 0) 
         THEN 
-        SELECT P1.session_date, P1.fees, P1.sid INTO curr_session_date, session_price, session_id
+        SELECT P1.session_date, P1.sid INTO curr_session_date, session_id
         FROM ((SELECT R1.sid
             FROM Registers R1
             WHERE R1.cust_id = input_cust_id AND R1.course_id = input_course_id AND R1.launch_date = input_launch_date) AS S1
             NATURAL JOIN
             CourseOfferingSessions) AS P1;
+        SELECT fees INTO session_price
+        FROM CourseOfferings
+        WHERE course_id = input_course_id
+            AND launch_date = input_launch_date;
     
         -- We treat fees in CourseOfferings as fees per session not fees per offering.
         -- scenario: customer cancelled, registered and cancelled same session in same day.
