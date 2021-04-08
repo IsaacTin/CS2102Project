@@ -1356,14 +1356,26 @@ BEGIN
         WHERE sid = input_sessionId
         AND course_id = input_courseId
         AND launch_date = input_launchDate) >= 1 THEN
+        RAISE EXCEPTION 'There is at least one registration for the session, it can not be removed.';
         RETURN;
     END IF;
 
-    DELETE FROM CourseOfferingSessions
-    WHERE course_id = input_courseId
-    AND sid = input_sessionId
-    AND launch_date = input_launchDate
-    AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
+    IF NOT EXISTS (SELECT 1
+                   FROM CourseOfferingSessions
+                   WHERE course_id = input_courseId
+                   AND sid = input_sessionId
+                   AND launch_date = input_launchDate
+                   AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME)) THEN
+        RAISE EXCEPTION 'Update unsuccessful. Either Course ID, session ID, and launch date does not match
+        any course offering sessions. Or the course offering session you are trying to update has already begun.';
+    ELSE 
+        RAISE NOTICE 'Removing session from course offering sessions';
+        DELETE FROM CourseOfferingSessions
+        WHERE course_id = input_courseId
+        AND sid = input_sessionId
+        AND launch_date = input_launchDate
+        AND (session_date + start_time) > (CURRENT_DATE + CURRENT_TIME); -- Course session hasn't started
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
