@@ -1247,6 +1247,7 @@ DECLARE
     count INT;
     num_registrations INT;
     has_space BOOLEAN;
+    session_id INT;
 BEGIN
     SELECT COUNT(*) INTO num_registrations
         FROM Registers
@@ -1275,11 +1276,19 @@ BEGIN
                             AND R.seating_capacity >= (num_registrations + 1)
         ) THEN RAISE EXCEPTION 'Seating capacity full for Session with sid: %', new_sid;
         ELSE
+            SELECT sid INTO session_id
+            FROM Registers
+            WHERE course_id = input_course_id
+                AND cust_id = input_cust_id
+                AND launch_date = input_launch_date;
+
             UPDATE Registers
             SET sid = new_sid
             WHERE course_id = input_course_id
                 AND cust_id = input_cust_id
                 AND launch_date = input_launch_date;
+            RAISE NOTICE 'Updated Customer: % Course: % launch_date: % session_id: % to new session_id: %', 
+                input_cust_id, input_course_id, input_launch_date, session_id, new_sid;
         END IF;
     ELSIF ((SELECT COUNT(*)
         FROM Redeems
@@ -1300,11 +1309,20 @@ BEGIN
                             AND R.seating_capacity >= (num_registrations + 1)
         ) THEN RAISE EXCEPTION 'Seating capacity full for Session with sid: %', new_sid;
         ELSE
+            SELECT sid INTO session_id
+            FROM Registers
+            WHERE course_id = input_course_id
+                AND cust_id = input_cust_id
+                AND launch_date = input_launch_date;
+            
             UPDATE Redeems
             SET sid = new_sid
             WHERE course_id = input_course_id
                 AND cust_id = input_cust_id
                 AND launch_date = input_launch_date;
+            
+            RAISE NOTICE 'Updated Customer: % Course: % launch_date: % session_id: % to new session_id: %', 
+                input_cust_id, input_course_id, input_launch_date, session_id, new_sid;
         END IF;
     ELSE
         RAISE EXCEPTION 'Could not find session from course id: %, launch date: % and cust_id: %', input_course_id, input_launch_date, input_cust_id;
@@ -1354,9 +1372,13 @@ BEGIN
         IF (curr_session_date - CURRENT_DATE > 7) THEN
             INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
             VALUES (CURRENT_DATE, 0.9 * session_price, NULL, input_cust_id, session_id, input_course_id, input_launch_date);
+            RAISE NOTICE 'Cancelled registration from cust_id: %, with course_id: %, launch_date: %; Refund given', 
+                input_cust_id, input_course_id, input_launch_date;
         ELSE
             INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
-            VALUES (CURRENT_DATE, 0, NULL, input_cust_id, session_id, input_course_id, input_launch_date); -- no refunded
+            VALUES (CURRENT_DATE, 0, NULL, input_cust_id, session_id, input_course_id, input_launch_date); -- no refund
+            RAISE NOTICE 'Cancelled registration from cust_id: %, with course_id: %, launch_date: %; Refund not given', 
+                input_cust_id, input_course_id, input_launch_date;
         END IF;
         DELETE FROM Registers
         WHERE course_id = input_course_id
@@ -1408,6 +1430,8 @@ BEGIN
         IF (curr_session_date - CURRENT_DATE >= 7) THEN
             INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
             VALUES (CURRENT_DATE, NULL, 1, input_cust_id, session_id, input_course_id, input_launch_date);
+            RAISE NOTICE 'Cancelled registration from cust_id: %, with course_id: %, launch_date: %; Refund given', 
+                input_cust_id, input_course_id, input_launch_date;
 
             IF (active_package_id IS NOT NULL) THEN
                 UPDATE Buys
@@ -1423,6 +1447,8 @@ BEGIN
         ELSE
             INSERT INTO Cancels (date, refund_amt, package_credit, cust_id, sid, course_id, launch_date)
             VALUES (CURRENT_DATE, NULL, 0, input_cust_id, session_id, input_course_id, input_launch_date); -- not refunded
+            RAISE NOTICE 'Cancelled registration from cust_id: %, with course_id: %, launch_date: %; Refund not given', 
+                input_cust_id, input_course_id, input_launch_date;
         END IF;
         DELETE FROM Redeems
         WHERE course_id = input_course_id

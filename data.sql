@@ -271,3 +271,16 @@ SELECT pay_salary();
 
 -- TODO: Cancels using cancel_registration function
 DELETE FROM Cancels;
+--cancel_registration(input_cust_id INT, input_course_id INT, input_launch_date DATE)
+--cancel from 
+CALL cancel_registration(1,1, '2021-01-01');
+CALL cancel_registration(2,2, '2021-01-02');
+CALL cancel_registration(3,3, '2021-01-03');
+CALL cancel_registration(4,4, '2021-01-04');
+CALL cancel_registration(5,5, '2021-01-05');
+--cancel from redeems
+CALL cancel_registration(16,2, '2021-01-02');
+CALL cancel_registration(17,3, '2021-01-03');
+CALL cancel_registration(18,3, '2021-01-03');
+CALL cancel_registration(19,4, '2021-01-04');
+CALL cancel_registration(20,5, '2021-01-05');
