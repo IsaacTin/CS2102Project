@@ -190,7 +190,7 @@ EXECUTE FUNCTION check_rooms();
 8.  Each instructor specializes in a set of one or more course areas 
 */
 
-/* actl i think this one dont need since foreign key k  inda ensures it but i just leave it here first*/
+/* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
 
 CREATE OR REPLACE FUNCTION check_instructor_specialization()
 RETURNS TRIGGER AS $$
