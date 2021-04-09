@@ -277,10 +277,15 @@ CREATE OR REPLACE FUNCTION check_part_time_instructor_hours()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.eid IN (SELECT eid FROM Part_time_instructors) THEN
-        IF (SELECT EXTRACT (EPOCH FROM 
-            (SELECT SUM(end_time - start_time) FROM CourseOfferingSessions 
-                WHERE eid = NEW.eid
-                AND (SELECT EXTRACT (MONTH FROM session_date) = (SELECT EXTRACT (MONTH FROM NEW.session_date)))))/3600) > 30
+        IF (SELECT 
+                    SUM(
+                            (SELECT EXTRACT (HOUR FROM session_date + end_time)) 
+                            - 
+                            (SELECT EXTRACT (HOUR FROM session_date + start_time))
+                        ) 
+                FROM CourseOfferingSessions C 
+                WHERE r.eid = C.eid AND C.session_date BETWEEN input_StartDate AND (input_StartDate + INTERVAL '1 month')
+         ) > 30/*I assume when qn ask for 'this month', means month starting from start date being inputted (if not it wont work when start date and end date are different months*/      
         THEN
             RAISE EXCEPTION 'Part-time instructors must not teach more than 30 hours for each month.';
             RETURN NULL;
@@ -292,6 +297,7 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER check_part_time_instructor_hours
 BEFORE INSERT OR UPDATE ON CourseOfferingSessions
