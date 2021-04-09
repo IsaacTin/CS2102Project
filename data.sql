@@ -249,21 +249,22 @@ CALL register_session(15,15,'2021-01-15', 2,'credit card');
 -- TODO: Redeems using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
 DELETE FROM Redeems;
-CALL register_session(16,3,'2021-01-01',1,'redemption');
-CALL register_session(17,3,'2021-01-02',1,'redemption');
+CALL register_session(16,2,'2021-01-02',1,'redemption');
+CALL register_session(17,3,'2021-01-03',1,'redemption');
 CALL register_session(18,3,'2021-01-03',1,'redemption');
-CALL register_session(19,3,'2021-01-04',1,'redemption');
-CALL register_session(20,3,'2021-01-05',1,'redemption');
-CALL register_session(21,3,'2021-01-06',1,'redemption');
-CALL register_session(22,3,'2021-01-07',1,'redemption');
-CALL register_session(23,3,'2021-01-08',1,'redemption');
-CALL register_session(24,3,'2021-01-09',2,'redemption');
-CALL register_session(25,3,'2021-01-10',2,'redemption');
-CALL register_session(26,3,'2021-01-11',2,'redemption');
-CALL register_session(27,3,'2021-01-12',2,'redemption');
-CALL register_session(28,3,'2021-01-13',2,'redemption');
-CALL register_session(29,3,'2021-01-14',2,'redemption');
-CALL register_session(30,3,'2021-01-15',2,'redemption');
+CALL register_session(19,4,'2021-01-04',1,'redemption');
+CALL register_session(20,5,'2021-01-05',1,'redemption');
+CALL register_session(21,6,'2021-01-06',1,'redemption');
+CALL register_session(22,7,'2021-01-07',1,'redemption');
+CALL register_session(23,8,'2021-01-08',1,'redemption');
+CALL register_session(24,9,'2021-01-09',2,'redemption');
+CALL register_session(25,10,'2021-01-10',2,'redemption');
+CALL register_session(26,11,'2021-01-11',2,'redemption');
+CALL register_session(27,12,'2021-01-12',2,'redemption');
+CALL register_session(28,13,'2021-01-13',2,'redemption');
+CALL register_session(29,14,'2021-01-14',2,'redemption');
+CALL register_session(30,15,'2021-01-15',2,'redemption');
+
 
 DELETE FROM Pay_slips;
 SELECT pay_salary();
