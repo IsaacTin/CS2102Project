@@ -1,5 +1,5 @@
 DELETE FROM Course_packages; -- Empty table
--- alternate way: call add_course_package('DiomedeaLALLAA irrorata',9, '2021-03-22', '2021-05-05',  75.35);
+-- alternate way: CALL add_course_package('DiomedeaLALLAA irrorata',9, '2021-03-22', '2021-05-05',  75.35);
 CALL add_course_package('Nyctea scandiaca', 5, '2021-04-11', '2021-05-07', 93.52);
 CALL add_course_package('Larus dominicanus', 3, '2021-04-10', '2021-04-23', 56.89);
 CALL add_course_package('Gabianus pacificus', 1, '2021-03-19', '2021-04-30', 69.67);
@@ -173,8 +173,19 @@ CALL add_customer('Laraine Roeby', 98024514, '35 Russell Junction', 'lroebyt@cli
 
 DELETE FROM Buys;
 CALL buy_course_package(1, 1);
+CALL buy_course_package(16, 1);
+CALL buy_course_package(17, 1);
+
 CALL buy_course_package(2, 2);
+CALL buy_course_package(18, 2);
+CALL buy_course_package(19, 2);
+
+
 CALL buy_course_package(3, 3);
+CALL buy_course_package(20, 3);
+CALL buy_course_package(21, 3);
+CALL buy_course_package(22, 3);
+
 CALL buy_course_package(4, 4);
 CALL buy_course_package(5, 5);
 CALL buy_course_package(6, 6);
@@ -187,13 +198,6 @@ CALL buy_course_package(12, 12);
 CALL buy_course_package(13, 13);
 CALL buy_course_package(14, 14);
 CALL buy_course_package(15, 15);
-CALL buy_course_package(16, 1);
-CALL buy_course_package(17, 1);
-CALL buy_course_package(18, 2);
-CALL buy_course_package(19, 2);
-CALL buy_course_package(20, 2);
-CALL buy_course_package(21, 6);
-CALL buy_course_package(22, 7);
 CALL buy_course_package(23, 8);
 CALL buy_course_package(24, 9);
 CALL buy_course_package(25, 10);
@@ -226,40 +230,44 @@ CALL add_course_offering(15, 120, '2021-01-15', '2021-04-15', 40, 5, array['2021
 -- TODO: Registers using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
 DELETE FROM Registers;
-call register_session(1,1,'2021-01-01', 1,'credit card');			
-call register_session(2,2,'2021-01-02', 1,'credit card');											 
-call register_session(3,3,'2021-01-03', 1,'credit card');											 
-call register_session(4,4,'2021-01-04', 1,'credit card');											 
-call register_session(5,5,'2021-01-05', 1,'credit card');			
-call register_session(6,6,'2021-01-06', 1,'credit card');
-call register_session(7,7,'2021-01-07', 1,'credit card');
-call register_session(8,8,'2021-01-08', 2,'credit card');
-call register_session(9,9,'2021-01-09', 2,'credit card');
-call register_session(10,10,'2021-01-10', 2,'credit card');
-call register_session(11,11,'2021-01-11', 2,'credit card');	
-call register_session(12,12,'2021-01-12', 2,'credit card');
-call register_session(13,13,'2021-01-13', 2,'credit card');
-call register_session(14,14,'2021-01-14', 2,'credit card');
-call register_session(15,15,'2021-01-15', 2,'credit card');							 
+CALL register_session(1,1,'2021-01-01', 1,'credit card');           
+CALL register_session(2,2,'2021-01-02', 1,'credit card');                                            
+CALL register_session(3,3,'2021-01-03', 1,'credit card');                                            
+CALL register_session(4,4,'2021-01-04', 1,'credit card');                                            
+CALL register_session(5,5,'2021-01-05', 1,'credit card');           
+CALL register_session(6,6,'2021-01-06', 1,'credit card');
+CALL register_session(7,7,'2021-01-07', 1,'credit card');
+CALL register_session(8,8,'2021-01-08', 2,'credit card');
+CALL register_session(9,9,'2021-01-09', 2,'credit card');
+CALL register_session(10,10,'2021-01-10', 2,'credit card');
+CALL register_session(11,11,'2021-01-11', 2,'credit card'); 
+CALL register_session(12,12,'2021-01-12', 2,'credit card');
+CALL register_session(13,13,'2021-01-13', 2,'credit card');
+CALL register_session(14,14,'2021-01-14', 2,'credit card');
+CALL register_session(15,15,'2021-01-15', 2,'credit card');                          
 
 -- TODO: Redeems using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
 DELETE FROM Redeems;
-call register_session(16,1,'2021-01-01',1,'redemption');
-call register_session(17,1,'2021-01-02',1,'redemption');
-call register_session(18,1,'2021-01-03',1,'redemption');
-call register_session(19,2,'2021-01-04',1,'redemption');
-call register_session(20,3,'2021-01-05',1,'redemption');
-call register_session(21,3,'2021-01-06',1,'redemption');
-call register_session(22,3,'2021-01-07',1,'redemption');
-call register_session(23,3,'2021-01-08',1,'redemption');
-call register_session(24,4,'2021-01-09',2,'redemption');
-call register_session(25,5,'2021-01-10',2,'redemption');
-call register_session(26,5,'2021-01-11',2,'redemption');
-call register_session(27,7,'2021-01-12',2,'redemption');
-call register_session(28,7,'2021-01-13',2,'redemption');
-call register_session(29,7,'2021-01-14',2,'redemption');
-call register_session(30,7,'2021-01-15',2,'redemption');
+CALL register_session(16,2,'2021-01-02',1,'redemption');
+CALL register_session(17,3,'2021-01-03',1,'redemption');
+CALL register_session(18,3,'2021-01-03',1,'redemption');
+CALL register_session(19,4,'2021-01-04',1,'redemption');
+CALL register_session(20,5,'2021-01-05',1,'redemption');
+CALL register_session(21,6,'2021-01-06',1,'redemption');
+CALL register_session(22,7,'2021-01-07',1,'redemption');
+CALL register_session(23,8,'2021-01-08',1,'redemption');
+CALL register_session(24,9,'2021-01-09',2,'redemption');
+CALL register_session(25,10,'2021-01-10',2,'redemption');
+CALL register_session(26,11,'2021-01-11',2,'redemption');
+CALL register_session(27,12,'2021-01-12',2,'redemption');
+CALL register_session(28,13,'2021-01-13',2,'redemption');
+CALL register_session(29,14,'2021-01-14',2,'redemption');
+CALL register_session(30,15,'2021-01-15',2,'redemption');
+
+
+DELETE FROM Pay_slips;
 SELECT pay_salary();
 
 -- TODO: Cancels using cancel_registration function
+DELETE FROM Cancels;
