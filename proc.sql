@@ -533,11 +533,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
-CREATE TRIGGER check_if_instructor_departed ON CourseOfferingSessions
+DROP TRIGGER IF EXISTS check_if_instructor_departed ON CourseOfferingSessions;
+CREATE TRIGGER check_if_instructor_departed
 BEFORE INSERT OR UPDATE ON CourseOfferingSessions
 FOR EACH ROW
 EXECUTE FUNCTION check_if_instructor_departed();
+
 
 CREATE OR REPLACE FUNCTION check_if_administrator_departed()
 RETURNS TRIGGER AS $$
@@ -555,7 +556,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_if_administrator_departed ON CourseOfferings
+DROP TRIGGER IF EXISTS check_if_administrator_departed ON CourseOfferings;
+CREATE TRIGGER check_if_administrator_departed
 BEFORE INSERT OR UPDATE ON CourseOfferings
 FOR EACH ROW
 EXECUTE FUNCTION check_if_administrator_departed();
