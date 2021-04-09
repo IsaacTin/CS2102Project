@@ -971,13 +971,6 @@ $$ LANGUAGE plpgsql;
 -- for each redeemed session (course name, session date, session start hour). 
 -- The redeemed session information is sorted in ascending order of session date and start hour.
 
-
--- 15. get_available_course_offerings: This routine is used to retrieve all the available 
--- course offerings that could be registered. The routine returns a table of records with 
--- the following information for each course offering: course title, course area, 
--- start date, end date, registration deadline, course fees, and the number of remaining seats. 
--- The output is sorted in ascending order of registration deadline and course title.
-
 -- Referred to: https://stackoverflow.com/questions/42222968/create-nested-json-from-sql-query-postgres-9-4
 -- and: https://stackoverflow.com/questions/38458318/returning-postgres-nested-json-array
 CREATE OR REPLACE FUNCTION get_my_course_package(input_cust_id INT) RETURNS JSON AS $$
@@ -1026,6 +1019,53 @@ from (
             s.num_remaining_redemptions
     ) s;
 return output;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 15. get_available_course_offerings: This routine is used to retrieve all the available 
+-- course offerings that could be registered. The routine returns a table of records with 
+-- the following information for each course offering: course title, course area, 
+-- start date, end date, registration deadline, course fees, and the number of remaining seats. 
+-- The output is sorted in ascending order of registration deadline and course title.
+
+CREATE OR REPLACE FUNCTION get_available_course_offerings() RETURNS TABLE (
+        title VARCHAR,
+        course_area_name VARCHAR,
+        start_date DATE,
+        end_date DATE,
+        registration_deadline DATE,
+        fees NUMERIC(36, 2),
+        remaining_seats BIGINT
+    ) AS $$ BEGIN RETURN QUERY WITH cte AS (
+        SELECT COUNT(sid),
+            course_id
+        FROM CourseOfferingSessions
+        GROUP BY course_id
+    ),
+    -- get sid count
+    cte2 AS (
+        -- get all required data except sid count
+        SELECT *
+        FROM CourseOfferings
+            NATURAL JOIN Courses
+        ORDER BY registration_deadline,
+            title ASC
+    ),
+    cte3 AS (
+        -- final table with required columns
+        SELECT cte2.title,
+            cte2.course_area_name,
+            cte2.start_date,
+            cte2.end_date,
+            cte2.registration_deadline,
+            cte2.fees,
+            (cte2.seating_capacity - cte.count) AS remaining_seats
+        FROM cte
+            NATURAL JOIN cte2
+    )
+SELECT *
+FROM cte3
+WHERE cte3.remaining_seats > 0;
 END;
 $$ LANGUAGE plpgsql;
 
