@@ -227,8 +227,7 @@ CALL add_course_offering(13, 110, '2021-01-13', '2021-04-13', 33, 3, array['2021
 CALL add_course_offering(14, 115, '2021-01-14', '2021-04-14', 34, 4, array['2021-07-28 15:00:00', '2021-07-19 15:00:00']::TIMESTAMP[], array[2,1]);
 CALL add_course_offering(15, 120, '2021-01-15', '2021-04-15', 40, 5, array['2021-07-29 15:00:00', '2021-07-21 15:00:00']::TIMESTAMP[], array[6,1]);
 
--- TODO: Registers using register_session function: 
---          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
+-- register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
 DELETE FROM Registers;
 CALL register_session(1,1,'2021-01-01', 1,'credit card');           
 CALL register_session(2,2,'2021-01-02', 1,'credit card');                                            
@@ -246,8 +245,7 @@ CALL register_session(13,13,'2021-01-13', 2,'credit card');
 CALL register_session(14,14,'2021-01-14', 2,'credit card');
 CALL register_session(15,15,'2021-01-15', 2,'credit card');                          
 
--- TODO: Redeems using register_session function: 
---          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
+-- register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
 DELETE FROM Redeems;
 CALL register_session(16,2,'2021-01-02',1,'redemption');
 CALL register_session(17,3,'2021-01-03',1,'redemption');
@@ -265,14 +263,12 @@ CALL register_session(28,13,'2021-01-13',2,'redemption');
 CALL register_session(29,14,'2021-01-14',2,'redemption');
 CALL register_session(30,15,'2021-01-15',2,'redemption');
 
-
 DELETE FROM Pay_slips;
 SELECT pay_salary();
 
--- TODO: Cancels using cancel_registration function
 DELETE FROM Cancels;
 --cancel_registration(input_cust_id INT, input_course_id INT, input_launch_date DATE)
---cancel from 
+--cancel from registers
 CALL cancel_registration(1,1, '2021-01-01');
 CALL cancel_registration(2,2, '2021-01-02');
 CALL cancel_registration(3,3, '2021-01-03');
