@@ -514,6 +514,54 @@ DEFERRABLE INITIALLY IMMEDIATE
 FOR EACH ROW
 EXECUTE FUNCTION check_if_valid_part_time();
 
+
+/* Ensure integrity of data when employee is removed */
+
+CREATE OR REPLACE FUNCTION check_if_instructor_departed()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM Employees
+        WHERE NEW.eid = eid
+        AND NEW.session_date > depart_date
+    ) THEN
+        RAISE EXCEPTION 'Instructor has already departed';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_instructor_departed ON CourseOfferingSessions;
+CREATE TRIGGER check_if_instructor_departed
+BEFORE INSERT OR UPDATE ON CourseOfferingSessions
+FOR EACH ROW
+EXECUTE FUNCTION check_if_instructor_departed();
+
+
+CREATE OR REPLACE FUNCTION check_if_administrator_departed()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM Employees
+        WHERE NEW.eid = eid
+        AND NEW.launch_date > depart_date
+    ) THEN
+        RAISE EXCEPTION 'Administrator has already departed';
+        RETURN NULL;
+    ELSE   
+        RETURN NEW;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS check_if_administrator_departed ON CourseOfferings;
+CREATE TRIGGER check_if_administrator_departed
+BEFORE INSERT OR UPDATE ON CourseOfferings
+FOR EACH ROW
+EXECUTE FUNCTION check_if_administrator_departed();
+
 /*ENDS HERE*/ 
 
 -- 1
