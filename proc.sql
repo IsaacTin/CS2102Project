@@ -190,7 +190,7 @@ EXECUTE FUNCTION check_rooms();
 8.  Each instructor specializes in a set of one or more course areas 
 */
 
-/* actl i think this one dont need since foreign key kinda ensures it but i just leave it here first*/
+/* actl i think this one dont need since foreign key k  inda ensures it but i just leave it here first*/
 
 CREATE OR REPLACE FUNCTION check_instructor_specialization()
 RETURNS TRIGGER AS $$
@@ -261,7 +261,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER check_if_same_hour 
+CREATE TRIGGER check_if_same_hour
 BEFORE INSERT OR UPDATE ON CourseOfferingSessions
 FOR EACH ROW
 EXECUTE FUNCTION check_if_same_hour();
@@ -284,7 +284,7 @@ BEGIN
                             (SELECT EXTRACT (HOUR FROM session_date + start_time))
                         ) 
                 FROM CourseOfferingSessions C 
-                WHERE r.eid = C.eid AND C.session_date BETWEEN input_StartDate AND (input_StartDate + INTERVAL '1 month')
+                WHERE NEW.eid = C.eid AND C.session_date BETWEEN NEW.session_date AND (NEW.session_date + INTERVAL '1 month')
          ) > 30/*I assume when qn ask for 'this month', means month starting from start date being inputted (if not it wont work when start date and end date are different months*/      
         THEN
             RAISE EXCEPTION 'Part-time instructors must not teach more than 30 hours for each month.';
@@ -297,7 +297,6 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
-
 
 CREATE TRIGGER check_part_time_instructor_hours
 BEFORE INSERT OR UPDATE ON CourseOfferingSessions
