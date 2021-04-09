@@ -1127,44 +1127,54 @@ $$ LANGUAGE plpgsql;
 -- start date, end date, registration deadline, course fees, and the number of remaining seats. 
 -- The output is sorted in ascending order of registration deadline and course title.
 
-CREATE OR REPLACE FUNCTION get_available_course_offerings() RETURNS TABLE (
-        title VARCHAR,
-        course_area_name VARCHAR,
-        start_date DATE,
-        end_date DATE,
-        registration_deadline DATE,
-        fees NUMERIC(36, 2),
-        remaining_seats BIGINT
-    ) AS $$ BEGIN RETURN QUERY WITH cte AS (
-        SELECT COUNT(sid),
-            course_id
-        FROM CourseOfferingSessions
-        GROUP BY course_id
-    ),
-    -- get sid count
-    cte2 AS (
-        -- get all required data except sid count
-        SELECT *
-        FROM CourseOfferings
-            NATURAL JOIN Courses
-        ORDER BY registration_deadline,
-            title ASC
-    ),
-    cte3 AS (
-        -- final table with required columns
-        SELECT cte2.title,
-            cte2.course_area_name,
-            cte2.start_date,
-            cte2.end_date,
-            cte2.registration_deadline,
-            cte2.fees,
-            (cte2.seating_capacity - cte.count) AS remaining_seats
-        FROM cte
-            NATURAL JOIN cte2
-    )
-SELECT *
-FROM cte3
-WHERE cte3.remaining_seats > 0;
+-- Referred to: https://stackoverflow.com/questions/42222968/create-nested-json-from-sql-query-postgres-9-4
+-- and: https://stackoverflow.com/questions/38458318/returning-postgres-nested-json-array
+CREATE OR REPLACE FUNCTION get_my_course_package(input_cust_id INT) RETURNS JSON AS $$
+DECLARE output JSON;
+BEGIN WITH cte AS (
+    SELECT name,
+        Buys.buys_date,
+        price,
+        num_free_registrations,
+        num_remaining_redemptions,
+        Course_packages.package_id,
+        Buys.cust_id,
+        Redeems.launch_date,
+        Redeems.course_id INTO output
+    FROM Buys
+        JOIN Course_packages ON Buys.package_id = Course_packages.package_id
+        JOIN Redeems ON Course_packages.package_id = Redeems.package_id
+        AND Buys.cust_id = Redeems.cust_id
+    WHERE Buys.cust_id = input_cust_id
+)
+select jsonb_pretty(jsonb_agg(js_object)) result
+from (
+        SELECT json_build_object(
+                'package name', package_id,
+                'purchase date', buys_date,
+                'price of package', price,
+                'no of free sessions in package', num_free_registrations,
+                'number of unredeemed sessions', num_remaining_redemptions,
+                'information for each redeemed session', json_agg(CourseOfferingSessions)
+            ) js_object
+        FROM (
+                SELECT cte.*,
+                    json_build_object(
+                        'course name', cte.name,
+                        'session date', s.session_date,
+                        'session start hour', s.start_time
+                    ) CourseOfferingSessions
+                FROM cte
+                    JOIN CourseOfferingSessions s ON cte.course_id = s.course_id
+                    AND cte.launch_date = s.launch_date
+            ) s
+        group by s.package_id,
+            s.buys_date,
+            s.price,
+            s.num_free_registrations,
+            s.num_remaining_redemptions
+    ) s;
+return output;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -1256,7 +1266,7 @@ ELSIF input_payment_method = 'redemption' THEN
 	SELECT buys_date, number, package_id INTO var_buys_date, var_cc_number, var_package_id
 		FROM Buys WHERE cust_id = input_cust_id;
 	SELECT sid, launch_date INTO var_sid, var_launch_date 
-		FROM CourseOfferingSessions WHERE course_id = input_course_id;
+		FROM CourseOfferingSessions WHERE course_id = input_course_id AND launch_date = input_launch_date;
 	INSERT INTO Redeems (redeems_date, buys_date, cust_id, number, package_id, sid, course_id, launch_date)
 	VALUES (CURRENT_DATE, var_buys_date, input_cust_id, var_cc_number, 
 			var_package_id, var_sid, input_course_id, var_launch_date);
@@ -2294,21 +2304,21 @@ call register_session(15,15,'2021-01-15', 2,'credit card');
 -- TODO: Redeems using register_session function: 
 --          register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'redemption') 
 DELETE FROM Redeems;
-call register_session(16,3,'2021-01-01',1,'redemption');
-call register_session(17,3,'2021-01-02',1,'redemption');
-call register_session(18,3,'2021-01-03',1,'redemption');
-call register_session(19,3,'2021-01-04',1,'redemption');
+call register_session(16,1,'2021-01-01',1,'redemption');
+call register_session(17,1,'2021-01-02',1,'redemption');
+call register_session(18,1,'2021-01-03',1,'redemption');
+call register_session(19,2,'2021-01-04',1,'redemption');
 call register_session(20,3,'2021-01-05',1,'redemption');
 call register_session(21,3,'2021-01-06',1,'redemption');
 call register_session(22,3,'2021-01-07',1,'redemption');
 call register_session(23,3,'2021-01-08',1,'redemption');
-call register_session(24,3,'2021-01-09',2,'redemption');
-call register_session(25,3,'2021-01-10',2,'redemption');
-call register_session(26,3,'2021-01-11',2,'redemption');
-call register_session(27,3,'2021-01-12',2,'redemption');
-call register_session(28,3,'2021-01-13',2,'redemption');
-call register_session(29,3,'2021-01-14',2,'redemption');
-call register_session(30,3,'2021-01-15',2,'redemption');
+call register_session(24,4,'2021-01-09',2,'redemption');
+call register_session(25,5,'2021-01-10',2,'redemption');
+call register_session(26,5,'2021-01-11',2,'redemption');
+call register_session(27,7,'2021-01-12',2,'redemption');
+call register_session(28,7,'2021-01-13',2,'redemption');
+call register_session(29,7,'2021-01-14',2,'redemption');
+call register_session(30,7,'2021-01-15',2,'redemption');
 SELECT pay_salary();
 
 -- TODO: Cancels using cancel_registration function
