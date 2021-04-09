@@ -1,13 +1,8 @@
-/**
-CS2102 relational database schema for ER data model
-**/
-    
 DROP TABLE IF EXISTS Course_packages, Credit_cards, Customers, Cancels, Registers, Redeems,
 Buys, CourseOfferingSessions, CourseOfferings, Courses, Rooms, Instructors,
 Administrators, Managers, CourseAreaManaged, Full_time_instructors, Part_time_instructors,
 Full_time_Emp, Part_time_Emp, Employees, Pay_slips, Specializes CASCADE;
 
--- DONE
 CREATE TABLE Course_packages (
     package_id                      INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
@@ -20,14 +15,12 @@ CREATE TABLE Course_packages (
     CONSTRAINT num_free_registrations_positive CHECK (num_free_registrations >= 0)
 );
 
--- DONE
 CREATE TABLE Rooms (
     rid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     location                        VARCHAR NOT NULL,
     seating_capacity                INT NOT NULL
 );
 
--- DONE
 CREATE TABLE Employees (
     eid                             INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
@@ -38,26 +31,22 @@ CREATE TABLE Employees (
     join_date                       DATE NOT NULL
 );
 
--- DONE
 CREATE TABLE Full_time_Emp (
     eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
     monthly_salary                  NUMERIC(36,2),
     CONSTRAINT monthly_salary_positive CHECK (monthly_salary >= 0)
 );
 
--- DONE
 CREATE TABLE Part_time_Emp (
     eid                             INT PRIMARY KEY REFERENCES Employees(eid) ON DELETE CASCADE,
     hourly_rate                     NUMERIC(36,2),
     CONSTRAINT hourly_rate_positive CHECK (hourly_rate >= 0)
 );
 
--- DONE
 CREATE TABLE Managers (
     eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE CourseAreaManaged (
     course_area_name                VARCHAR PRIMARY KEY, /*ensure 1 to 1 with CourseAreaManaged*/
     eid                             INT NOT NULL,
@@ -75,21 +64,18 @@ CREATE TABLE Specializes (
     PRIMARY KEY (eid, course_area_name)
 );
 
--- DONE
 CREATE TABLE Part_time_instructors (
     eid                             INT PRIMARY KEY,
     FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
     FOREIGN KEY (eid) REFERENCES Part_time_Emp(eid) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE Full_time_instructors (
     eid                             INT PRIMARY KEY,
     FOREIGN KEY (eid) REFERENCES Instructors(eid) ON DELETE CASCADE,
     FOREIGN KEY (eid) REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE Courses (
     course_id                       INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     course_area_name                VARCHAR NOT NULL, /**name of course area, NOT NULL enforces total participation and key constraint**/
@@ -100,7 +86,6 @@ CREATE TABLE Courses (
     CONSTRAINT course_duration_is_more_than_zero CHECK (duration > 0)
 );
 
--- DONE
 CREATE TABLE Customers (
     cust_id                         INT UNIQUE GENERATED ALWAYS AS IDENTITY,
     name                            VARCHAR NOT NULL,
@@ -111,7 +96,6 @@ CREATE TABLE Customers (
     PRIMARY KEY (cust_id, number)
 );
 
--- DONE
 CREATE TABLE Credit_cards (
     number                          VARCHAR(16) PRIMARY KEY,
     CVV                             INT NOT NULL,
@@ -121,7 +105,6 @@ CREATE TABLE Credit_cards (
     FOREIGN KEY (cust_id) REFERENCES Customers(cust_id) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE Buys (
     buys_date                       DATE,
     num_remaining_redemptions       INT,
@@ -131,12 +114,10 @@ CREATE TABLE Buys (
     PRIMARY KEY(buys_date, cust_id, number, package_id)
 );
 
--- DONE
 CREATE TABLE Administrators (
     eid                             INT PRIMARY KEY REFERENCES Full_time_Emp(eid) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE CourseOfferings (
     launch_date                     DATE NOT NULL,
     start_date                      DATE,
@@ -155,7 +136,6 @@ CREATE TABLE CourseOfferings (
     CONSTRAINT registration_deadline_10_days_before_start_date CHECK (start_date - registration_deadline >= 10)
 );
 
--- DONE
 CREATE TABLE CourseOfferingSessions (
     sid                             INT, /*Took out unique here*/
     start_time                      TIME NOT NULL,
@@ -185,7 +165,6 @@ CREATE TABLE CourseOfferingSessions (
     CONSTRAINT session_date_after_launch_date CHECK (session_date >= launch_date)
 );
 
--- DONE
 CREATE TABLE Registers (
     registers_date                  DATE,
     cust_id                         INT REFERENCES Customers(cust_id),
@@ -197,7 +176,6 @@ CREATE TABLE Registers (
     FOREIGN KEY (sid, course_id, launch_date) REFERENCES CourseOfferingSessions(sid, course_id, launch_date) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE Redeems (
     redeems_date                    DATE,
     buys_date                       DATE,
@@ -212,7 +190,6 @@ CREATE TABLE Redeems (
     PRIMARY KEY (redeems_date, buys_date, sid, cust_id, number, package_id)
 );
 
--- DONE
 CREATE TABLE Pay_slips (
     payment_date                    DATE,
     amount                          NUMERIC(36,2),
@@ -223,7 +200,6 @@ CREATE TABLE Pay_slips (
     FOREIGN KEY (eid) REFERENCES Employees(eid) ON DELETE CASCADE
 );
 
--- DONE
 CREATE TABLE Cancels (
     date                            DATE,
     refund_amt                      NUMERIC(36,2),
