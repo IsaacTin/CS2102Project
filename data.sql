@@ -264,7 +264,7 @@ CALL register_session(29,14,'2021-01-14',2,'redemption');
 CALL register_session(30,15,'2021-01-15',2,'redemption');
 
 DELETE FROM Pay_slips;
-SELECT pay_salary();
+SELECT * FROM pay_salary();
 
 DELETE FROM Cancels;
 --cancel_registration(input_cust_id INT, input_course_id INT, input_launch_date DATE)

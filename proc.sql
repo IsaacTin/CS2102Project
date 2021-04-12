@@ -1071,6 +1071,9 @@ from (
             s.num_free_registrations,
             s.num_remaining_redemptions
     ) s;
+IF output IS NULL THEN
+	raise exception 'Not found for Customer ID: %',input_cust_id;
+END IF;
 return output;
 END;
 $$ LANGUAGE plpgsql;
