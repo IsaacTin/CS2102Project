@@ -1218,7 +1218,7 @@ ELSIF input_payment_method = 'redemption' THEN
 		FROM CourseOfferingSessions WHERE course_id = input_course_id AND launch_date = input_launch_date;
 	INSERT INTO Redeems (redeems_date, buys_date, cust_id, number, package_id, sid, course_id, launch_date)
 	VALUES (CURRENT_DATE, var_buys_date, input_cust_id, var_cc_number, 
-			var_package_id, var_sid, input_course_id, input_launch_date);
+			var_package_id, input_session_number, input_course_id, input_launch_date);
                               
     -- update Buys, minus one from redemption
     -- There should only be 1 entry as each customer can have at most one active or partially active package.
