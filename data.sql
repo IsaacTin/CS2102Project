@@ -220,12 +220,12 @@ CALL add_course_offering(7, 80, '2021-01-07', '2021-05-07', 37, 5, array['2021-0
 CALL add_course_offering(8, 85, '2021-01-08', '2021-05-08', 38, 5, array['2021-06-26 15:00:00', '2021-06-16 15:00:00']::TIMESTAMP[], array[13,9]);
 CALL add_course_offering(9, 90, '2021-01-09', '2021-05-09', 39, 5, array['2021-06-27 15:00:00', '2021-06-18 15:00:00']::TIMESTAMP[], array[2,3]);
 CALL add_course_offering(1, 50, '2021-01-01', '2021-05-01', 31, 5, array['2021-06-28 15:00:00', '2021-06-19 15:00:00']::TIMESTAMP[], array[4,5]);
-CALL add_course_offering(10, 95, '2021-01-10', '2021-04-10', 32, 2, array['2021-06-29 15:00:00', '2021-06-20 15:00:00']::TIMESTAMP[], array[9,10]);
-CALL add_course_offering(11, 100, '2021-01-11', '2021-04-11', 31, 1, array['2021-07-25 15:00:00', '2021-07-13 15:00:00']::TIMESTAMP[], array[3,1]);
-CALL add_course_offering(12, 105, '2021-01-12', '2021-04-12', 32, 2, array['2021-07-26 15:00:00', '2021-07-15 15:00:00']::TIMESTAMP[], array[3,5]);
-CALL add_course_offering(13, 110, '2021-01-13', '2021-04-13', 33, 3, array['2021-07-27 15:00:00', '2021-07-17 15:00:00']::TIMESTAMP[], array[2,3]);
-CALL add_course_offering(14, 115, '2021-01-14', '2021-04-14', 34, 4, array['2021-07-28 15:00:00', '2021-07-19 15:00:00']::TIMESTAMP[], array[2,1]);
-CALL add_course_offering(15, 120, '2021-01-15', '2021-04-15', 40, 5, array['2021-07-29 15:00:00', '2021-07-21 15:00:00']::TIMESTAMP[], array[6,1]);
+CALL add_course_offering(10, 95, '2021-01-10', '2021-05-10', 32, 2, array['2021-06-29 15:00:00', '2021-06-20 15:00:00']::TIMESTAMP[], array[9,10]);
+CALL add_course_offering(11, 100, '2021-01-11', '2021-05-11', 31, 1, array['2021-07-25 15:00:00', '2021-07-13 15:00:00']::TIMESTAMP[], array[3,1]);
+CALL add_course_offering(12, 105, '2021-01-12', '2021-05-12', 32, 2, array['2021-07-26 15:00:00', '2021-07-15 15:00:00']::TIMESTAMP[], array[3,5]);
+CALL add_course_offering(13, 110, '2021-01-13', '2021-05-13', 33, 3, array['2021-07-27 15:00:00', '2021-07-17 15:00:00']::TIMESTAMP[], array[2,3]);
+CALL add_course_offering(14, 115, '2021-01-14', '2021-05-14', 34, 4, array['2021-07-28 15:00:00', '2021-07-19 15:00:00']::TIMESTAMP[], array[2,1]);
+CALL add_course_offering(15, 120, '2021-01-15', '2021-05-15', 40, 5, array['2021-07-29 15:00:00', '2021-07-21 15:00:00']::TIMESTAMP[], array[6,1]);
 
 -- register_session(input_cust_id INT, input_course_id INT, input_launch_date DATE, input_session_number INT, 'credit card') 
 DELETE FROM Registers;
